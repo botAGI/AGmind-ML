@@ -1,0 +1,16 @@
+# --- data generation (data/generate.py) ---
+openai>=1.0
+razdel
+datasets
+huggingface_hub
+
+# --- eval / inference / wrapper ---
+requests
+fastapi
+uvicorn
+pyyaml
+
+# --- training (training/train.py) on RTX 5090 / Blackwell sm_120 ---
+# Install separately with the CUDA index — see training/config.md for exact pins:
+#   pip install torch==2.11.0 torchvision torchaudio --index-url https://download.pytorch.org/whl/cu129
+#   pip install "triton>=3.3.1" unsloth unsloth_zoo transformers trl peft accelerate datasets

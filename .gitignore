@@ -1,0 +1,24 @@
+# weights / large artifacts (never commit)
+*.gguf
+*.safetensors
+*.bin
+**/out*/
+**/merged*/
+**/*_merged/
+**/checkpoint-*/
+**/llama.cpp/
+**/.venv/
+**/hf/
+**/hf_cache/
+
+# full datasets (samples are tracked; full sets live on HF)
+**/train_v1*.jsonl
+**/topup*.jsonl
+**/*_raw.jsonl
+*.bak
+
+# logs / scratch
+*.log
+__pycache__/
+*.pyc
+.DS_Store

@@ -1,0 +1,246 @@
+version: 0.6.0
+kind: app
+app:
+  name: RU Document Chunker (ru-splitter)
+  mode: workflow
+  icon: "🧩"
+  icon_background: '#EFF1F5'
+  description: Режет русский документ на смысловые чанки (таблицы/код целиком) через модель ru-splitter. Вход text -> препроцесс (нумерация) -> модель (границы) -> реконструкция -> chunks.
+  use_icon_as_answer_icon: false
+dependencies: []
+workflow:
+  environment_variables: []
+  conversation_variables: []
+  features:
+    file_upload:
+      enabled: false
+    opening_statement: ''
+    retriever_resource:
+      enabled: false
+    sensitive_word_avoidance:
+      enabled: false
+    speech_to_text:
+      enabled: false
+    suggested_questions: []
+    suggested_questions_after_answer:
+      enabled: false
+    text_to_speech:
+      enabled: false
+  graph:
+    viewport:
+      x: 0
+      y: 0
+      zoom: 1
+    nodes:
+      - id: 'start'
+        type: custom
+        position: {x: 80, y: 240}
+        positionAbsolute: {x: 80, y: 240}
+        sourcePosition: right
+        targetPosition: left
+        width: 244
+        height: 116
+        data:
+          type: start
+          title: Start
+          desc: ''
+          selected: false
+          variables:
+            - variable: text
+              label: Документ
+              type: paragraph
+              required: true
+              max_length: 1000000
+              options: []
+      - id: 'preprocess'
+        type: custom
+        position: {x: 380, y: 240}
+        positionAbsolute: {x: 380, y: 240}
+        sourcePosition: right
+        targetPosition: left
+        width: 244
+        height: 116
+        data:
+          type: code
+          title: Препроцесс (нумерация)
+          desc: предложения + таблицы/код целиком -> [1..N]
+          selected: false
+          variables:
+            - variable: text
+              value_selector: ['start', 'text']
+          code_language: python3
+          code: |
+            import re
+            def main(text: str) -> dict:
+                lines = text.split("\n")
+                units = []
+                buf = []
+                def flush():
+                    t = " ".join(x.strip() for x in buf if x.strip())
+                    for s in re.split(r'(?<=[.!?])\s+', t):
+                        if s.strip():
+                            units.append(s.strip())
+                    buf.clear()
+                i = 0
+                while i < len(lines):
+                    ln = lines[i]
+                    if "|" in ln and i + 1 < len(lines) and re.match(r'^\s*\|?[\s:|-]+\|?\s*$', lines[i+1]) and "-" in lines[i+1]:
+                        flush()
+                        blk = [ln]
+                        i += 1
+                        while i < len(lines) and "|" in lines[i]:
+                            blk.append(lines[i])
+                            i += 1
+                        units.append("\n".join(blk))
+                        continue
+                    if ln.strip() == "":
+                        flush()
+                        i += 1
+                        continue
+                    buf.append(ln)
+                    i += 1
+                flush()
+                numbered = "\n".join("[%d] %s" % (k + 1, u) for k, u in enumerate(units))
+                return {"numbered": numbered, "units": units}
+          outputs:
+            numbered:
+              type: string
+            units:
+              type: array[string]
+      - id: 'splitter'
+        type: custom
+        position: {x: 680, y: 240}
+        positionAbsolute: {x: 680, y: 240}
+        sourcePosition: right
+        targetPosition: left
+        width: 244
+        height: 116
+        data:
+          type: llm
+          title: ru-splitter
+          desc: модель ставит границы чанков
+          selected: false
+          model:
+            provider: langgenius/openai_api_compatible/openai_api_compatible
+            name: ru-splitter
+            mode: completion
+            completion_params:
+              temperature: 0
+              max_tokens: 512
+          prompt_template:
+            text: |-
+              ### Instruction:
+              Раздели документ на смысловые части для системы поиска (RAG). Каждая часть читается независимо, не разрывая предложений, таблиц и кода. Верни ТОЛЬКО номера единиц, после которых проходит граница, в формате JSON.
+
+              ### Input:
+              {{#preprocess.numbered#}}
+
+              ### Response:
+            edition_type: basic
+          prompt_config:
+            jinja2_variables: []
+          context:
+            enabled: false
+            variable_selector: []
+          vision:
+            enabled: false
+          structured_output_enabled: false
+          memory: null
+      - id: 'reconstruct'
+        type: custom
+        position: {x: 980, y: 240}
+        positionAbsolute: {x: 980, y: 240}
+        sourcePosition: right
+        targetPosition: left
+        width: 244
+        height: 116
+        data:
+          type: code
+          title: Реконструкция чанков
+          desc: parse {"splits":[...]} -> нарезка (lossless)
+          selected: false
+          variables:
+            - variable: splits_raw
+              value_selector: ['splitter', 'text']
+            - variable: units
+              value_selector: ['preprocess', 'units']
+          code_language: python3
+          code: |
+            import json, re
+            def main(splits_raw: str, units: list) -> dict:
+                n = len(units)
+                splits = []
+                m = re.search(r'\{.*\}', splits_raw, re.S) if splits_raw else None
+                if m:
+                    try:
+                        splits = [int(x) for x in json.loads(m.group(0)).get("splits", [])]
+                    except Exception:
+                        splits = [int(x) for x in re.findall(r'\d+', m.group(0))]
+                splits = sorted({s for s in splits if 0 < s < n})
+                bounds = [0] + splits + [n]
+                chunks = []
+                for a, b in zip(bounds, bounds[1:]):
+                    seg = units[a:b]
+                    if seg:
+                        chunks.append("\n".join(seg))
+                if not chunks and units:
+                    chunks = ["\n".join(units)]
+                return {"chunks": chunks, "chunk_count": len(chunks)}
+          outputs:
+            chunks:
+              type: array[string]
+            chunk_count:
+              type: number
+      - id: 'end'
+        type: custom
+        position: {x: 1280, y: 240}
+        positionAbsolute: {x: 1280, y: 240}
+        sourcePosition: right
+        targetPosition: left
+        width: 244
+        height: 116
+        data:
+          type: end
+          title: End
+          desc: ''
+          selected: false
+          outputs:
+            - variable: chunks
+              value_type: array[string]
+              value_selector: ['reconstruct', 'chunks']
+            - variable: chunk_count
+              value_type: number
+              value_selector: ['reconstruct', 'chunk_count']
+    edges:
+      - id: e-start-preprocess
+        source: 'start'
+        target: 'preprocess'
+        sourceHandle: source
+        targetHandle: target
+        type: custom
+        zIndex: 0
+        data: {sourceType: start, targetType: code, isInIteration: false}
+      - id: e-preprocess-splitter
+        source: 'preprocess'
+        target: 'splitter'
+        sourceHandle: source
+        targetHandle: target
+        type: custom
+        zIndex: 0
+        data: {sourceType: code, targetType: llm, isInIteration: false}
+      - id: e-splitter-reconstruct
+        source: 'splitter'
+        target: 'reconstruct'
+        sourceHandle: source
+        targetHandle: target
+        type: custom
+        zIndex: 0
+        data: {sourceType: llm, targetType: code, isInIteration: false}
+      - id: e-reconstruct-end
+        source: 'reconstruct'
+        target: 'end'
+        sourceHandle: source
+        targetHandle: target
+        type: custom
+        zIndex: 0
+        data: {sourceType: code, targetType: end, isInIteration: false}
