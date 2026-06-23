@@ -1,0 +1,17 @@
+cff-version: 1.2.0
+message: "If you use these models, please cite this repository."
+title: "AGmind-ML — fine-tuned models for self-hosted RAG"
+authors:
+  - name: "botAGI"
+version: "1.0.0"
+date-released: "2026-06-23"
+url: "https://github.com/botAGI/AGmind-ML"
+license: Apache-2.0
+keywords:
+  - rag
+  - text-segmentation
+  - chunking
+  - russian
+  - lora
+  - gguf
+  - llama.cpp

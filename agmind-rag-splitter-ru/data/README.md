@@ -1,8 +1,8 @@
-# Dataset card — RU context-aware split
+# Карточка датасета — RU context-aware split
 
-Training data for the Russian context-aware document splitter. Each example teaches the model **where to cut a document** into self-contained semantic chunks.
+Обучающие данные для русского context-aware сплиттера документов. Каждый пример учит модель **где резать документ** на самодостаточные смысловые чанки.
 
-## Format (Alpaca JSONL)
+## Формат (Alpaca JSONL)
 ```json
 {
   "instruction": "Раздели документ на смысловые части для системы поиска (RAG)...",
@@ -10,25 +10,25 @@ Training data for the Russian context-aware document splitter. Each example teac
   "output": "{\"splits\": [3, 7], \"topic\": \"о чём документ\"}"
 }
 ```
-- **input** = the document pre-segmented into numbered *units*: prose split into sentences (via `razdel`), while **tables and code blocks are kept as single atomic units**.
-- **output** = a JSON object: `splits` = the unit indices **after which** a chunk boundary falls (1-indexed), `topic` = a one-sentence summary.
-- At inference the host slices the **original** text at these indices → chunks are **byte-identical** to the source and tables are never broken.
+- **input** = документ, заранее разбитый на нумерованные *юниты*: проза делится на предложения (через `razdel`), а **таблицы и блоки кода держатся как единые атомарные юниты**.
+- **output** = JSON-объект: `splits` = индексы юнитов, **после которых** проходит граница чанка (1-индексные), `topic` = одно предложение-саммари.
+- На инференсе хост режет **оригинал** по этим индексам → чанки **байт-в-байт** совпадают с исходником, таблицы не разрываются.
 
-## How it was built (teacher distillation)
-1. Pull documents from Russian corpora (below).
-2. Segment into numbered units (`razdel` + markdown-table/code detection).
-3. A strong teacher (**DeepSeek-V4-Flash**, OpenAI-compatible endpoint, grammar/`temperature=0`) labels the boundary indices + topic.
-4. **Quality gates** (every example must pass): valid JSON; 1–60 splits; cyrillic-ratio > 0.6; no non-final chunk < 8 words; topic is Russian ≤ 200 chars; MD5/near-dup filtered.
-   Reproduce with `data/generate.py`.
+## Как собрано (дистилляция учителя)
+1. Тянем документы из русских корпусов (ниже).
+2. Делим на нумерованные юниты (`razdel` + детект markdown-таблиц/кода).
+3. Сильный учитель (**DeepSeek-V4-Flash**, OpenAI-совместимый эндпоинт, grammar/`temperature=0`) размечает индексы границ + topic.
+4. **Гейты качества** (каждый пример обязан пройти): валидный JSON; 1–60 границ; кириллица > 0.6; ни одного не-последнего чанка < 8 слов; topic — русский ≤ 200 симв.; MD5/near-dup отфильтрованы.
+   Воспроизведение — `data/generate.py`.
 
-## Composition (~17k examples)
-| source | share | license | role |
+## Состав (~17k примеров)
+| источник | доля | лицензия | роль |
 |---|---|---|---|
-| `deepvk/cultura_ru_edu` | ~47% | apache-2.0 | web/edu prose |
-| `IlyaGusev/habr` | ~34% | (unspec) — training-only | technical text + code blocks |
-| synthetic tables/code | ~19% | generated | guaranteed table/code atomicity (12 domains: finance, configs, schedules, metrics, prices, specs…) |
+| `deepvk/cultura_ru_edu` | ~47% | apache-2.0 | web/edu проза |
+| `IlyaGusev/habr` | ~34% | (unspec) — training-only | технический текст + блоки кода |
+| синтетика таблиц/кода | ~19% | сгенерировано | гарантия атомарности таблиц/кода (12 доменов: финансы, конфиги, расписания, метрики, прайсы, спеки…) |
 
-A 12k synthetic-only top-up was generated separately for table/code emphasis (a v2 dataset). Full sets (~17k + 12k) live outside git (too large) — publish on HuggingFace Datasets. This repo ships a **600-example sample** (`sample_train.jsonl`) + **120-example holdout** (`sample_holdout.jsonl`).
+Отдельно сгенерирован 12k синтетик-only top-up для усиления таблиц/кода (датасет v2). Полные сеты (~17k + 12k) — вне git (велики), выкладываются на HuggingFace Datasets. В репо — **сэмпл 600** (`sample_train.jsonl`) + **120 holdout** (`sample_holdout.jsonl`).
 
-## Licensing note
-The trained weights learn a *labeling policy* over boundary indices, not the source prose, so copyleft on a source corpus attaches to that prose, not to the weights or the JSON output. For a cleanly-redistributable dataset, prefer the apache/CC0/CC-BY sources and treat unspecified-license corpora as training-only.
+## О лицензиях
+Обученные веса учат *политику разметки* над индексами границ, а не исходную прозу, поэтому copyleft на исходном корпусе цепляется к этой прозе, а не к весам или JSON-выводу. Для чисто-редистрибутируемого датасета предпочтительны apache/CC0/CC-BY источники; корпуса с неуказанной лицензией — training-only.

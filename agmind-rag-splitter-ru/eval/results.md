@@ -1,34 +1,34 @@
-# Evaluation results
+# Результаты оценки
 
-## Metrics (1,500-example held-out set, greedy decoding)
+## Метрики (отложенная выборка 1500, greedy-декодинг)
 
-| Metric | HF model (RTX 5090) | GGUF Q5_K_M (AMD Vulkan) |
+| Метрика | HF-модель (RTX 5090) | GGUF Q5_K_M (AMD Vulkan) |
 |---|---|---|
-| Valid JSON output | 100.0% | 100.0% |
+| Валидный JSON | 100.0% | 100.0% |
 | boundary-F1 @0 | 0.656 | 0.639 |
 | boundary-F1 @±1 | 0.821 | 0.817 |
 | exact-set-match | 29.0% | 25.0% |
 
-**Checkpoint selection** — epoch 2 (final) beat epoch 1 on the task metric despite a flat `eval_loss`:
+**Выбор чекпоинта** — эпоха 2 (финал) обошла эпоху 1 по task-метрике несмотря на плоский `eval_loss`:
 
 | | boundary-F1@0 | boundary-F1@±1 | exact-set |
 |---|---|---|---|
-| epoch 1 (step 1000) | 0.610 | 0.800 | 23% |
-| **epoch 2 (final)** | **0.656** | **0.821** | **29%** |
+| эпоха 1 (шаг 1000) | 0.610 | 0.800 | 23% |
+| **эпоха 2 (финал)** | **0.656** | **0.821** | **29%** |
 
-→ cross-entropy is a weak proxy for this structured task; always select on the task metric.
+→ cross-entropy — слабый прокси для этой структурной задачи; всегда выбирай по task-метрике.
 
-## Definitions
-- **boundary-F1@k**: F1 over the set of predicted vs gold boundary indices, allowing ±k sentences of tolerance. `@0` = exact position, `@±1` = off-by-one allowed (usually harmless for chunking).
-- **exact-set-match**: fraction of documents where the predicted boundary set equals the gold set exactly (a harsh metric — segmentation has many valid answers).
-- **Valid JSON**: fraction of outputs parseable as `{"splits":[...], "topic":"..."}`.
+## Определения
+- **boundary-F1@k**: F1 по множеству предсказанных vs gold индексов границ, с допуском ±k предложений. `@0` = точная позиция, `@±1` = допустим промах на 1 (обычно безвреден для чанкинга).
+- **exact-set-match**: доля документов, где предсказанное множество границ точно равно gold (жёсткая метрика — у сегментации много валидных ответов).
+- **Валидный JSON**: доля выводов, парсимых как `{"splits":[...], "topic":"..."}`.
 
-## What "gold" means here
-Labels come from the distillation **teacher** (DeepSeek-V4-Flash), filtered by self-consistency and hard validation gates. These metrics measure **agreement with the teacher**, i.e. how well the student learned the labeling policy — not human ground truth. A downstream retrieval eval (hit-rate@k / faithfulness on a Russian QA set) is the right next measurement and is future work.
+## Что значит «gold» здесь
+Метки получены от модели-**учителя** (DeepSeek-V4-Flash), отфильтрованы self-consistency и жёсткими гейтами валидации. Эти метрики измеряют **согласие с учителем** — насколько ученик выучил политику разметки, а не human-ground-truth. Downstream-оценка ретрива (hit-rate@k / faithfulness на русском QA-сете) — правильный следующий замер и в планах.
 
-## Reproduce
+## Воспроизведение
 ```bash
-MODEL=out_merged       N=1500 python eval/eval_hf.py     # HF model
-# against the deployed GGUF endpoint (edit URL in eval_gguf.py):
+MODEL=out_merged       N=1500 python eval/eval_hf.py     # HF-модель
+# против развёрнутого GGUF-эндпоинта (правь URL в eval_gguf.py):
 python eval/eval_gguf.py 1500
 ```

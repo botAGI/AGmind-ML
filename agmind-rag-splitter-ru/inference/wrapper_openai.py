@@ -1,12 +1,18 @@
-"""OpenAI-compatible wrapper: Dify шлёт документ как chat-сообщение -> razdel+нумерация ->
-splitter-модель (llama.cpp :8085) -> реконструкция -> возвращает смысловые чанки.
-Lossless (режем оригинал), таблицы/код атомарны."""
+"""OpenAI-compatible chunking service: принимает документ как chat-сообщение,
+делает razdel-нумерацию -> splitter-модель (llama.cpp) -> реконструкцию,
+возвращает смысловые чанки. Lossless (режет оригинал), таблицы/код атомарны.
+
+Любой OpenAI-совместимый клиент шлёт {"messages":[{"role":"user","content": "<документ>"}]}
+на /v1/chat/completions и получает чанки в ответном сообщении.
+
+Запуск:  SPLITTER_URL=http://<host>:8085/completion uvicorn wrapper_openai:app --host 0.0.0.0 --port 8086
+"""
+import os, re, json, time, requests
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, StreamingResponse
-import re, json, time, requests
 from razdel import sentenize
 
-SPLITTER = "http://192.168.1.73:8085/completion"  # splitter GGUF на beelink2 (AMD Vulkan)
+SPLITTER = os.environ.get("SPLITTER_URL", "http://127.0.0.1:8085/completion")  # llama-server /completion
 MODELID = "ru-splitter-chunker"
 INSTR = ("Раздели документ на смысловые части для системы поиска (RAG). Каждая часть читается "
          "независимо, не разрывая предложений, таблиц и кода. Верни ТОЛЬКО номера единиц, после "
@@ -15,26 +21,27 @@ app = FastAPI()
 
 def segment_units(md):
     units=[]; lines=md.split("\n"); i=0; n=len(lines); buf=[]
-    def flush(b):
-        t=" ".join(x.strip() for x in b if x.strip())
+    def flush():
+        t=" ".join(x.strip() for x in buf if x.strip())
         for s in sentenize(t):
             st=s.text.strip()
             if st: units.append(("sent",st))
+        buf.clear()
     while i<n:
         ln=lines[i]
         if ln.strip().startswith("```"):
             blk=[ln]; i+=1
             while i<n and not lines[i].strip().startswith("```"): blk.append(lines[i]); i+=1
             if i<n: blk.append(lines[i]); i+=1
-            flush(buf); buf=[]; units.append(("code","\n".join(blk))); continue
+            flush(); units.append(("code","\n".join(blk))); continue
         if "|" in ln and i+1<n and re.match(r"^\s*\|?[\s:|-]+\|?\s*$",lines[i+1]) and "-" in lines[i+1]:
-            flush(buf); buf=[]; blk=[ln]; i+=1
+            flush(); blk=[ln]; i+=1
             while i<n and "|" in lines[i]: blk.append(lines[i]); i+=1
             units.append(("table","\n".join(blk))); continue
-        if ln.strip()=="": flush(buf); buf=[]; i+=1; continue
-        if re.match(r"^#{1,6}\s",ln.strip()): flush(buf); buf=[]; units.append(("head",ln.strip())); i+=1; continue
+        if ln.strip()=="": flush(); i+=1; continue
+        if re.match(r"^#{1,6}\s",ln.strip()): flush(); units.append(("head",ln.strip())); i+=1; continue
         buf.append(ln); i+=1
-    flush(buf); return units
+    flush(); return units
 
 def chunk_document(text):
     units=segment_units(text)
@@ -48,8 +55,7 @@ def chunk_document(text):
             o=json.loads(m.group(0)); splits=sorted(set(int(x) for x in o.get("splits",[]) if 0<int(x)<len(units))); topic=o.get("topic","")
         except Exception: pass
     bounds=[0]+splits+[len(units)]
-    chunks=["\n".join(u[1] for u in units[a:b]).strip() for a,b in zip(bounds,bounds[1:])]
-    return chunks, topic
+    return ["\n".join(u[1] for u in units[a:b]).strip() for a,b in zip(bounds,bounds[1:])], topic
 
 def render(text):
     if not text.strip(): return "Пришли текст документа — верну смысловые чанки (таблицы целиком)."
@@ -61,8 +67,7 @@ def render(text):
     return "\n".join(out)
 
 @app.get("/v1/models")
-def models():
-    return {"object":"list","data":[{"id":MODELID,"object":"model","owned_by":"agmind"}]}
+def models(): return {"object":"list","data":[{"id":MODELID,"object":"model","owned_by":"agmind"}]}
 
 @app.get("/health")
 def health(): return {"status":"ok"}
@@ -75,8 +80,7 @@ async def chat(req: Request):
             c=m.get("content"); text=c if isinstance(c,str) else json.dumps(c,ensure_ascii=False); break
     try: content=render(text)
     except Exception as e: content=f"Ошибка чанкинга: {e}"
-    cr=int(time.time())
-    base={"id":"chatcmpl-spl","created":cr,"model":MODELID}
+    cr=int(time.time()); base={"id":"chatcmpl-spl","created":cr,"model":MODELID}
     if body.get("stream"):
         def g():
             d={**base,"object":"chat.completion.chunk","choices":[{"index":0,"delta":{"role":"assistant","content":content},"finish_reason":None}]}

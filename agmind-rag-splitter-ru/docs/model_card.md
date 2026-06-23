@@ -14,12 +14,12 @@ tags:
 
 # RU Context-Aware Document Splitter (T-lite-it-2.1 LoRA)
 
-Fine-tune of **`t-tech/T-lite-it-2.1`** (Qwen3-8B) that segments Russian documents into self-contained semantic chunks for RAG, keeping tables/code atomic. Given text pre-split into numbered units, it returns the boundary indices + a topic as JSON.
+Дообучение **`t-tech/T-lite-it-2.1`** (Qwen3-8B), которое режет русские документы на самодостаточные смысловые чанки для RAG, держа таблицы/код целыми. На вход — текст, заранее разбитый на нумерованные юниты; на выход — индексы границ + topic в JSON.
 
-## Usage
-The model is a **completion** model trained on a raw Alpaca prompt (no chat template). Pre-segment the document into numbered units first; reconstruct chunks host-side from the returned indices.
+## Использование
+Это **completion**-модель, обученная на raw-Alpaca промпте (без чат-шаблона). Сначала разбей документ на нумерованные юниты; чанки собери на хосте по возвращённым индексам.
 
-**Prompt:**
+**Промпт:**
 ```
 ### Instruction:
 Раздели документ на смысловые части для системы поиска (RAG). Каждая часть читается независимо, не разрывая предложений, таблиц и кода. Верни ТОЛЬКО номера единиц, после которых проходит граница, в формате JSON.
@@ -28,26 +28,26 @@ The model is a **completion** model trained on a raw Alpaca prompt (no chat temp
 [1] Первое предложение. [2] Второе. [3] | таблица |...|
 ### Response:
 ```
-**Output:** `{"splits": [2], "topic": "..."}` — `splits` = unit indices after which a chunk boundary falls (1-indexed). Slice the original text at those points.
+**Вывод:** `{"splits": [2], "topic": "..."}` — `splits` = индексы юнитов, после которых граница (1-индексные). Режь оригинал по этим точкам.
 
-Full pre/post-processing + a llama.cpp serving recipe: see the [GitHub repo](.).
+Полный пре-/пост-процессинг + рецепт сервинга на llama.cpp — в [GitHub-репозитории](https://github.com/botAGI/AGmind-ML/tree/main/agmind-rag-splitter-ru).
 
-## Results (1,500 held-out, agreement with teacher labels)
-| Valid JSON | F1@0 | F1@±1 | exact-set |
+## Результаты (1500 holdout, согласие с метками учителя)
+| Валидный JSON | F1@0 | F1@±1 | exact-set |
 |---|---|---|---|
 | 100% | 0.656 | 0.821 | 29% |
 
-GGUF Q5_K_M matches FP16 within quantization noise; runs on AMD Vulkan via llama.cpp.
+GGUF Q5_K_M совпадает с FP16 в пределах шума квантизации; работает на AMD Vulkan через llama.cpp.
 
-## Training
-bf16 LoRA (r32, rsLoRA, all-linear, response-only) on RTX 5090; ~17k teacher-distilled examples (DeepSeek-V4-Flash). See repo `docs/methodology.md`.
+## Обучение
+bf16 LoRA (r32, rsLoRA, all-linear, response-only) на RTX 5090; ~17k примеров дистилляции (DeepSeek-V4-Flash). См. `docs/methodology.md` в репо.
 
-## Files
-- LoRA adapter / merged FP16 weights
+## Файлы
+- LoRA-адаптер / merged FP16-веса
 - `*-Q5_K_M.gguf` (llama.cpp, Vulkan/CPU)
 
-## Limitations
-Metrics are teacher-agreement, not human ground truth. Slight over-segmentation. For very large tables use a dedicated table-handling strategy, not this boundary model.
+## Ограничения
+Метрики — согласие с учителем, не human-ground-truth. Лёгкая пере-сегментация. Для очень больших таблиц нужна отдельная табличная стратегия, а не эта боундари-модель.
 
-## License
-Apache-2.0 (inherits the T-lite-it-2.1 base license).
+## Лицензия
+Apache-2.0 (наследует лицензию базы T-lite-it-2.1).
