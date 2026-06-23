@@ -13,7 +13,7 @@
 
 | Проект | Что делает | База | Ключевые цифры | Статус |
 |---|---|---|---|---|
-| [**agmind-rag-splitter-ru**](agmind-rag-splitter-ru/) | Русский context-aware сплиттер документов для RAG: смысловые чанки, таблицы и код целиком, lossless-реконструкция | `t-tech/T-lite-it-2.1` (Qwen3-8B) | валидный JSON **100%**, boundary-F1@±1 **0.821** | ✅ обучена + развёрнута |
+| [**agmind-rag-splitter-ru**](agmind-rag-splitter-ru/) · [🤗 HF](https://huggingface.co/AGmind/agmind-rag-splitter-ru) | Русский context-aware сплиттер документов для RAG: смысловые чанки, таблицы и код целиком, lossless-реконструкция | `t-tech/T-lite-it-2.1` (Qwen3-8B) | валидный JSON **100%**, boundary-F1@±1 **0.821** | ✅ обучена + развёрнута |
 | _следующая…_ | _(guardian / grounded-RAG генератор и т.д.)_ | | | в планах |
 
 ## Общий метод (для всех проектов)

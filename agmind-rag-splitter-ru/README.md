@@ -7,6 +7,9 @@
 ![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)
 ![Base](https://img.shields.io/badge/base-T--lite--it--2.1-orange)
 ![GGUF](https://img.shields.io/badge/GGUF-Q5__K__M-green)
+[![HuggingFace](https://img.shields.io/badge/🤗%20HuggingFace-AGmind%2Fagmind--rag--splitter--ru-yellow)](https://huggingface.co/AGmind/agmind-rag-splitter-ru)
+
+**🤗 Модель:** [`AGmind/agmind-rag-splitter-ru`](https://huggingface.co/AGmind/agmind-rag-splitter-ru) — safetensors (transformers) + GGUF Q5_K_M (llama.cpp).
 
 > Идея вдохновлена [`mhenrichsen/context-aware-splitter`](https://huggingface.co/mhenrichsen/context-aware-splitter-1b) (датский) — пересобрано под русский с кириллическим токенайзером и lossless-выводом по индексам.
 
