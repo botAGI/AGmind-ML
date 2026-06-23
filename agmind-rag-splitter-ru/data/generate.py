@@ -23,28 +23,10 @@ def cli():
 def habr_to_md(t):
     t=re.sub(r"\[code[^\]]*\]","\n```\n",t); return re.sub(r"\[/code\]","\n```\n",t)
 
-def segment_units(md):
-    units=[]; lines=md.split("\n"); i=0; n=len(lines); buf=[]
-    def flush(b):
-        text=" ".join(x.strip() for x in b if x.strip())
-        for s in sentenize(text):
-            st=s.text.strip()
-            if st: units.append(("sent",st))
-    while i<n:
-        ln=lines[i]
-        if ln.strip().startswith("```"):
-            blk=[ln]; i+=1
-            while i<n and not lines[i].strip().startswith("```"): blk.append(lines[i]); i+=1
-            if i<n: blk.append(lines[i]); i+=1
-            flush(buf); buf=[]; units.append(("code","\n".join(blk))); continue
-        if "|" in ln and i+1<n and re.match(r"^\s*\|?[\s:|-]+\|?\s*$",lines[i+1]) and "-" in lines[i+1]:
-            flush(buf); buf=[]; blk=[ln]; i+=1
-            while i<n and "|" in lines[i]: blk.append(lines[i]); i+=1
-            units.append(("table","\n".join(blk))); continue
-        if ln.strip()=="": flush(buf); buf=[]; i+=1; continue
-        if re.match(r"^#{1,6}\s",ln.strip()): flush(buf); buf=[]; units.append(("head",ln.strip())); i+=1; continue
-        buf.append(ln); i+=1
-    flush(buf); return units
+# segment_units вынесён в общий модуль inference/segmenter.py — ОДИН источник
+# правды для data-gen и инференса (нет train/serve skew; оба фикса таблиц там же).
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "inference"))
+from segmenter import segment_units  # noqa: E402
 
 # ---------- teacher labeling (retries) ----------
 def label(units,wc,temp=0.2):

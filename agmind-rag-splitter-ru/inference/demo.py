@@ -1,6 +1,6 @@
-import sys, json, re, urllib.request
-sys.path.insert(0,'/home/beelinknode/ru-splitter-data')
-from gen import segment_units
+import os, sys, json, re, urllib.request
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from segmenter import segment_units  # единый сегментатор (см. inference/segmenter.py)
 URL="http://192.168.1.73:8085/completion"
 DOC = """# Обзор новых тарифов мобильной связи
 

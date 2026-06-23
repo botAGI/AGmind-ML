@@ -7,10 +7,12 @@
 
 Запуск:  SPLITTER_URL=http://<host>:8085/completion uvicorn wrapper_openai:app --host 0.0.0.0 --port 8086
 """
-import os, re, json, time, requests
+import os, sys, re, json, time, requests
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, StreamingResponse
-from razdel import sentenize
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from segmenter import segment_units  # единый сегментатор — см. segmenter.py (no train/serve skew)
 
 SPLITTER = os.environ.get("SPLITTER_URL", "http://127.0.0.1:8085/completion")  # llama-server /completion
 MODELID = "ru-splitter-chunker"
@@ -18,30 +20,6 @@ INSTR = ("Раздели документ на смысловые части д�
          "независимо, не разрывая предложений, таблиц и кода. Верни ТОЛЬКО номера единиц, после "
          "которых проходит граница, в формате JSON.")
 app = FastAPI()
-
-def segment_units(md):
-    units=[]; lines=md.split("\n"); i=0; n=len(lines); buf=[]
-    def flush():
-        t=" ".join(x.strip() for x in buf if x.strip())
-        for s in sentenize(t):
-            st=s.text.strip()
-            if st: units.append(("sent",st))
-        buf.clear()
-    while i<n:
-        ln=lines[i]
-        if ln.strip().startswith("```"):
-            blk=[ln]; i+=1
-            while i<n and not lines[i].strip().startswith("```"): blk.append(lines[i]); i+=1
-            if i<n: blk.append(lines[i]); i+=1
-            flush(); units.append(("code","\n".join(blk))); continue
-        if "|" in ln and i+1<n and re.match(r"^\s*\|?[\s:|-]+\|?\s*$",lines[i+1]) and "-" in lines[i+1]:
-            flush(); blk=[ln]; i+=1
-            while i<n and "|" in lines[i]: blk.append(lines[i]); i+=1
-            units.append(("table","\n".join(blk))); continue
-        if ln.strip()=="": flush(); i+=1; continue
-        if re.match(r"^#{1,6}\s",ln.strip()): flush(); units.append(("head",ln.strip())); i+=1; continue
-        buf.append(ln); i+=1
-    flush(); return units
 
 def chunk_document(text):
     units=segment_units(text)
