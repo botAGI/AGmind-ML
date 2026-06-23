@@ -1,5 +1,16 @@
 # AGmind-ML
 
+**Fine-tuned local models for the self-hosted [AGmind](https://github.com/botAGI/AGmind) stack — the full lifecycle by hand:** teacher distillation → PEFT/LoRA → GGUF quantization → `llama.cpp` inference on **AMD (Vulkan, no CUDA)**. Commercial-OK licenses, fully local.
+
+**Shipped — [`agmind-rag-splitter-ru`](agmind-rag-splitter-ru/):** a Russian context-aware RAG document splitter — semantic chunks, tables and code kept whole, lossless reconstruction. Base `t-tech/T-lite-it-2.1` (Qwen3-8B); bf16 LoRA + rsLoRA, response-only loss; Cyrillic-reworked tokenizer (~1.6× fewer tokens). **100% valid JSON · boundary-F1@±1 = 0.821.**
+
+- 🤗 **Model:** https://huggingface.co/AGmind/agmind-rag-splitter-ru
+- 🤗 **Dataset:** https://huggingface.co/datasets/AGmind/agmind-rag-splitter-ru-data
+
+_Полное описание на русском — ниже._
+
+---
+
 Дообученные модели для self-hosted AI-стека **AGmind**. Каждая модель: дистилляция из сильной модели-учителя, PEFT-обучение на потребительском железе (RTX 5090 / Blackwell), квантизация в GGUF и инференс на **AMD (Vulkan, без CUDA)** через `llama.cpp` — полностью локально, лицензии commercial-OK.
 
 Каждый проект — в своей папке, самодостаточный (данные → обучение → оценка → инференс → доки).
