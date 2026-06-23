@@ -3,6 +3,8 @@ language:
 - ru
 license: apache-2.0
 base_model: t-tech/T-lite-it-2.1
+datasets:
+- AGmind/agmind-rag-splitter-ru-data
 pipeline_tag: text-generation
 tags:
 - rag
@@ -38,6 +40,9 @@ tags:
 | 100% | 0.656 | 0.821 | 29% |
 
 GGUF Q5_K_M совпадает с FP16 в пределах шума квантизации; работает на AMD Vulkan через llama.cpp.
+
+## Данные
+Датасет: [`AGmind/agmind-rag-splitter-ru-data`](https://huggingface.co/datasets/AGmind/agmind-rag-splitter-ru-data) (~17k train + 12k синтетика, дистилляция от DeepSeek-V4-Flash).
 
 ## Обучение
 bf16 LoRA (r32, rsLoRA, all-linear, response-only) на RTX 5090; ~17k примеров дистилляции (DeepSeek-V4-Flash). См. `docs/methodology.md` в репо.

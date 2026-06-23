@@ -10,6 +10,7 @@
 [![HuggingFace](https://img.shields.io/badge/🤗%20HuggingFace-AGmind%2Fagmind--rag--splitter--ru-yellow)](https://huggingface.co/AGmind/agmind-rag-splitter-ru)
 
 **🤗 Модель:** [`AGmind/agmind-rag-splitter-ru`](https://huggingface.co/AGmind/agmind-rag-splitter-ru) — safetensors (transformers) + GGUF Q5_K_M (llama.cpp).
+**📊 Датасет:** [`AGmind/agmind-rag-splitter-ru-data`](https://huggingface.co/datasets/AGmind/agmind-rag-splitter-ru-data) — ~17k train + 12k синтетика.
 
 > Идея вдохновлена [`mhenrichsen/context-aware-splitter`](https://huggingface.co/mhenrichsen/context-aware-splitter-1b) (датский) — пересобрано под русский с кириллическим токенайзером и lossless-выводом по индексам.
 
