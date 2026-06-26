@@ -19,6 +19,8 @@
 
 # logs / scratch
 *.log
+# ...but committed eval evidence in eval/ is tracked (exception to the scratch-log ignore)
+!agmind-rag-splitter-ru/eval/*.log
 __pycache__/
 *.pyc
 .DS_Store
