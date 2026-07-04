@@ -34,12 +34,22 @@ tags:
 
 Полный пре-/пост-процессинг + рецепт сервинга на llama.cpp — в [GitHub-репозитории](https://github.com/botAGI/AGmind-ML/tree/main/agmind-rag-splitter-ru).
 
-## Результаты (1500 holdout, согласие с метками учителя)
+## Результаты (согласие с метками учителя)
+
+Исходный snapshot **N=300** из holdout-1500:
+
 | Валидный JSON | F1@0 | F1@±1 | exact-set |
 |---|---|---|---|
 | 100% | 0.656 | 0.821 | 29% |
 
-GGUF Q5_K_M совпадает с FP16 в пределах шума квантизации; работает на AMD Vulkan через llama.cpp.
+Перепроверка на полном **holdout-1500** (2026-06-26, raw stdout — в `eval/` GitHub-репозитория):
+
+| Прогон | JSON | F1@0 | F1@±1 | exact |
+|---|---|---|---|---|
+| HF bf16 | 99.9% | 0.665 | 0.825 | 30.0% |
+| GGUF Q5_K_M, AMD Vulkan | 100% | 0.661 | 0.826 | 29.9% |
+
+На полном holdout GGUF Q5_K_M практически равен HF-модели; работает на AMD Vulkan через llama.cpp.
 
 ## Данные
 Датасет: [`AGmind/agmind-rag-splitter-ru-data`](https://huggingface.co/datasets/AGmind/agmind-rag-splitter-ru-data) (~17k train + 12k синтетика, дистилляция от DeepSeek-V4-Flash).
