@@ -6,6 +6,7 @@
 
 - 🤗 **Model:** https://huggingface.co/AGmind/agmind-rag-splitter-ru
 - 🤗 **Dataset:** https://huggingface.co/datasets/AGmind/agmind-rag-splitter-ru-data
+- 📝 **Write-up (RU, Habr):** https://habr.com/ru/articles/1055628/
 
 _Полное описание на русском — ниже._
 
