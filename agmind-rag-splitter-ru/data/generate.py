@@ -9,7 +9,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from openai import OpenAI
 from razdel import sentenize
 
-DS_URL="http://192.168.1.45:8000/v1"; MODEL="deepseek-v4-flash-spark"
+DS_URL="http://192.168.1.45:8000/v1"; MODEL="dspark"  # v2: модель на спарке переименована (было deepseek-v4-flash-spark)
 SCHEMA={"type":"object","properties":{"splits":{"type":"array","items":{"type":"integer"}},
         "topic":{"type":"string"}},"required":["splits","topic"]}
 WORD_COUNTS=[120,160,200,250,300]
@@ -23,9 +23,8 @@ def cli():
 def habr_to_md(t):
     t=re.sub(r"\[code[^\]]*\]","\n```\n",t); return re.sub(r"\[/code\]","\n```\n",t)
 
-# segment_units вынесён в общий модуль inference/segmenter.py — ОДИН источник
-# правды для data-gen и инференса (нет train/serve skew; оба фикса таблиц там же).
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "inference"))
+# segment_units — общий модуль segmenter.py (фиксы таблиц B/C); единый с инференсом.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from segmenter import segment_units  # noqa: E402
 
 # ---------- teacher labeling (retries) ----------
@@ -50,6 +49,103 @@ def label(units,wc,temp=0.2):
         except Exception as e:
             last=str(e)[:80]
     raise RuntimeError(f"label failed x3: {last}")
+
+# ---------- teacher labeling V2 (few-shot + self-consistency) ----------
+# Фидбек Хабра (ToxaBes): (1) промпт с примерами, запрещающими разрыв единой мысли —
+# чинить данные, а не пост-мёржем; (2) голосование из нескольких прогонов вместо одного.
+# СТАТИЧНЫЙ system (wc вынесен в ХВОСТ user) — общий префикс для vLLM prefix-cache:
+# один и тот же system у всех запросов + 3 прогона label_voted идентичны побайтово.
+_SYS_V2=("Ты сегментируешь русские документы для системы поиска (RAG). Разбивай на самостоятельные "
+    "смысловые фрагменты.\n"
+    "Правила:\n"
+    "1. Режь ТОЛЬКО на границах пронумерованных единиц; НИКОГДА не разрывай таблицы и блоки кода "
+    "(они даны цельными единицами).\n"
+    "2. НЕ РАЗРЫВАЙ ЕДИНУЮ МЫСЛЬ: определение и его пояснение, тезис и его обоснование или пример, "
+    "вопрос и ответ, анонс списка и сам список, таблица и предложение-подводка к ней — держи в ОДНОМ фрагменте.\n"
+    "3. Не дроби без необходимости: если соседние единицы продолжают одну мысль, граница между ними — ошибка. "
+    "ЛУЧШЕ МЕНЬШЕ ГРАНИЦ, чем разорванная мысль. Ставь границу только там, где начинается НОВАЯ тема или подтема.\n"
+    "4. Ориентир размера фрагмента будет указан в конце запроса, но смысловая цельность ВАЖНЕЕ размера.\n\n"
+    "Пример. Документ:\n"
+    "[1] Кэширование ускоряет ответы сервиса. [2] Оно снижает нагрузку на базу данных. "
+    "[3] Однако инвалидация кэша — сложная задача. [4] Рассмотрим настройку Redis. "
+    "[5] Установите пакет redis-server. [6] Затем задайте лимит памяти в конфигурации.\n"
+    "ПРАВИЛЬНО: {\"splits\":[3]} — единицы 1–3 это одна мысль (польза кэширования и её оговорка), "
+    "4–6 — инструкция по Redis.\n"
+    "ОШИБКА: {\"splits\":[1,2,3,4,5]} — крошит единую мысль на осколки, каждый фрагмент нечитаем отдельно.\n"
+    "ОШИБКА: {\"splits\":[2]} — отрывает оговорку [3] от её темы и приклеивает к чужой.\n\n"
+    "Возвращай только JSON.")
+
+def label_v2(units,wc,temp):
+    numbered="\n".join(f"[{k+1}] {u[1]}" for k,u in enumerate(units))
+    usrp=("Ниже документ по пронумерованным единицам (предложения, заголовки, [целые] таблицы и код). "
+          "Укажи номера единиц, ПОСЛЕ которых граница смысловых фрагментов. Верни JSON "
+          "{\"splits\":[номера],\"topic\":\"одно предложение: о чём документ\"}.\n\n"+numbered+
+          f"\n\nОриентир размера фрагмента: ~{wc} слов.")
+    last=""
+    for attempt in range(3):
+        try:
+            r=cli().chat.completions.create(model=MODEL,
+                messages=[{"role":"system","content":_SYS_V2},{"role":"user","content":usrp}],
+                temperature=temp,max_tokens=256,extra_body={"guided_json":SCHEMA})
+            c=(r.choices[0].message.content or "").strip()
+            if not c: last="empty"; continue
+            return json.loads(c)
+        except Exception as e:
+            last=str(e)[:80]
+    raise RuntimeError(f"label_v2 failed x3: {last}")
+
+def _vote_splits(runs_splits,nunits):
+    """Голосование границ между прогонами: кластеризация соседних позиций (±1),
+    кластер остаётся при поддержке большинством прогонов; берём медиану кластера."""
+    pts=sorted((s,ri) for ri,sp in enumerate(runs_splits) for s in sp)
+    clusters=[]
+    for pos,ri in pts:
+        if clusters and pos-clusters[-1][-1][0]<=1: clusters[-1].append((pos,ri))
+        else: clusters.append([(pos,ri)])
+    need=len(runs_splits)//2+1
+    out=[]
+    for cl in clusters:
+        if len({ri for _,ri in cl})>=need:
+            poss=sorted(p for p,_ in cl)
+            out.append(poss[len(poss)//2])
+    return sorted(set(x for x in out if 1<=x<nunits))
+
+def _sample_n(units,wc,n,temp=0.6):
+    """Один запрос с n сэмплами: префилл платится ОДИН раз (prefill-bound стенд, вход:выход ~23:1)."""
+    numbered="\n".join(f"[{k+1}] {u[1]}" for k,u in enumerate(units))
+    usrp=("Ниже документ по пронумерованным единицам (предложения, заголовки, [целые] таблицы и код). "
+          "Укажи номера единиц, ПОСЛЕ которых граница смысловых фрагментов. Верни JSON "
+          "{\"splits\":[номера],\"topic\":\"одно предложение: о чём документ\"}.\n\n"+numbered+
+          f"\n\nОриентир размера фрагмента: ~{wc} слов.")
+    r=cli().chat.completions.create(model=MODEL,
+        messages=[{"role":"system","content":_SYS_V2},{"role":"user","content":usrp}],
+        temperature=temp,max_tokens=256,n=n,extra_body={"guided_json":SCHEMA})
+    outs=[]
+    for ch in r.choices:
+        try:
+            o=json.loads((ch.message.content or "").strip())
+            if "splits" in o: outs.append(o)
+        except Exception: pass
+    return outs
+
+def label_voted(units,wc):
+    """Self-consistency одним запросом: n=3 сэмпла из одного префилла → голосование по границам.
+    Канонично (Wang et al.): N сэмплов при одной temp. При <2 валидных — добор n=2."""
+    runs=[]
+    for attempt in range(3):
+        try:
+            runs=_sample_n(units,wc,3)
+            break
+        except Exception:
+            if attempt==2: raise
+    if len(runs)<2:
+        try: runs+= _sample_n(units,wc,2)
+        except Exception: pass
+    if not runs: raise RuntimeError("all voted samples failed")
+    if len(runs)==1: return runs[0]  # деградация: один живой сэмпл; gate добьёт мусор
+    votes=[valid_splits(r.get("splits",[]),len(units)) for r in runs]
+    topic=next(((r.get("topic") or "").strip() for r in runs if (r.get("topic") or "").strip()),"")
+    return {"splits":_vote_splits(votes,len(units)),"topic":topic}
 
 def valid_splits(splits,nunits):
     return sorted({int(x) for x in splits if isinstance(x,(int,float)) and 1<=int(x)<nunits})
@@ -160,18 +256,24 @@ def cyr_ratio(s):
 def iter_docs(target):
     """Yield (source, markdown) interleaved by proportion (synthetic in round-robin)."""
     from datasets import load_dataset
-    random.seed(13)
+    random.seed(int(os.environ.get("SEED","13"))+6)  # v2: свежая синтетика, не дубль v1/topup
     def synth_gen():
         i=0
         while True:
             yield ("synthetic",synth_doc(i)); i+=1
     SYNTH_ONLY=bool(os.environ.get("SYNTH_ONLY"))
-    gens=[("synthetic",synth_gen(),1.0 if SYNTH_ONLY else 0.25,None)]
+    gens=[("synthetic",synth_gen(),1.0 if SYNTH_ONLY else 0.20,None)]  # v2: 0.25→0.20 (реальных источников стало 4)
     if not SYNTH_ONLY:
-        try: gens.append(("cultura",iter(load_dataset("deepvk/cultura_ru_edu",split="train",streaming=True)),0.45,["text"]))
+        # v2-микс (ресерч 2026-07-15): IlyaGusev/habr МЁРТВ (401) → vypivshiy/habr (тот же text_markdown);
+        # + edutexts (CC0, учебно-официальный регистр) + RussianFinancialNews (apache-2.0, деловой регистр).
+        try: gens.append(("cultura",iter(load_dataset("deepvk/cultura_ru_edu",split="train",streaming=True).skip(20000)),0.35,["text"]))  # skip: не повторять v1-доки
         except Exception as e: print("cultura load fail",str(e)[:80])
-        try: gens.append(("habr",iter(load_dataset("IlyaGusev/habr",split="train",streaming=True)),0.30,["text_markdown"]))
+        try: gens.append(("habr",iter(load_dataset("vypivshiy/habr",split="train",streaming=True)),0.25,["text_markdown"]))
         except Exception as e: print("habr load fail",str(e)[:80])
+        try: gens.append(("edu",iter(load_dataset("nyuuzyou/edutexts","documents",split="train",streaming=True)),0.10,["document_text"]))
+        except Exception as e: print("edutexts load fail",str(e)[:80])
+        try: gens.append(("finnews",iter(load_dataset("Kasymkhan/RussianFinancialNews",split="train",streaming=True)),0.10,["body"]))
+        except Exception as e: print("finnews load fail",str(e)[:80])
     quotas={name:max(1,int(target*w)) for name,_,w,_ in gens}
     counts={name:0 for name,_,_,_ in gens}
     active=True
@@ -202,7 +304,8 @@ def process(doc):
     units=segment_units(md)
     if not (5<=len(units)<=120): return None
     wc=random.choice(WORD_COUNTS)
-    try: res=label(units,wc)
+    try:
+        res=label_voted(units,wc) if os.environ.get("LABEL_V2","1")=="1" else label(units,wc)
     except Exception: return None
     g=gate(units,res)
     if not g: return None
@@ -213,7 +316,7 @@ def main():
     target=int(sys.argv[1]) if len(sys.argv)>1 else 200
     out=sys.argv[2] if len(sys.argv)>2 else "train.jsonl"
     workers=int(sys.argv[3]) if len(sys.argv)>3 else 24
-    random.seed(7)
+    random.seed(int(os.environ.get("SEED","7")))  # v2: SEED=21 → свежие доки, не повтор v1
     docs=iter_docs(int(target*1.4))  # overshoot for gate rejection; interleaved => proportions hold
     seen=set(); rows=[]; done=0; fail=0
     rawf=open(out.replace(".jsonl","_raw.jsonl"),"w")  # durable incremental output

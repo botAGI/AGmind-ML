@@ -3,7 +3,7 @@
 response-only loss (output=boundary JSON is tiny vs input => mask instruction/input).
 Env: DATA, HOLD, OUTDIR, SMOKE_STEPS (0=full epochs), EPOCHS, MAXLEN.
 Run on RTX 5090 / WSL2. HF_HOME pinned to gamer-owned cache."""
-import os, sys
+import os, sys, glob
 os.environ.setdefault("HF_HOME","/home/gamer/ru-splitter/hf")
 os.environ.setdefault("HF_HUB_ENABLE_HF_TRANSFER","0")
 import torch
@@ -19,6 +19,8 @@ SMOKE  = int(os.environ.get("SMOKE_STEPS","0"))
 EPOCHS = float(os.environ.get("EPOCHS","2"))
 MAXLEN = int(os.environ.get("MAXLEN","4096"))
 
+assert os.path.exists(DATA), f"DATA not found: {DATA}"
+assert os.path.exists(HOLD), f"HOLD not found: {HOLD}"   # тихий трейн без eval нам не нужен
 print(f"DATA={DATA} OUT={OUTDIR} smoke_steps={SMOKE} epochs={EPOCHS} maxlen={MAXLEN}", flush=True)
 model, tok = FastLanguageModel.from_pretrained("t-tech/T-lite-it-2.1",
     max_seq_length=MAXLEN, dtype=torch.bfloat16, load_in_4bit=False)
@@ -49,9 +51,24 @@ trainer = SFTTrainer(model=model, train_dataset=train_ds,
 trainer = train_on_responses_only(trainer,
     instruction_part="### Instruction:\n", response_part="### Response:\n")
 print("== training ==", flush=True)
-trainer.train()
+# resume: после обрыва (WSL-сон/креш) тот же запуск продолжает с последнего чекпоинта
+_ckpts = glob.glob(os.path.join(OUTDIR, "checkpoint-*"))
+trainer.train(resume_from_checkpoint=bool(_ckpts))
 print("PEAK_VRAM_GB", round(torch.cuda.max_memory_allocated()/1e9,2), flush=True)
 if SMOKE==0:
-    model.save_pretrained_merged(OUTDIR+"_merged", tok, save_method="merged_16bit")
-    print("MERGED_SAVED", OUTDIR+"_merged", flush=True)
+    # 1) СНАЧАЛА адаптер — дёшево и надёжно; при фейле merge результат трейна не теряется
+    lora_dir = os.path.abspath(OUTDIR+"_lora")
+    model.save_pretrained(lora_dir); tok.save_pretrained(lora_dir)
+    _a = os.path.join(lora_dir, "adapter_model.safetensors")
+    assert os.path.isfile(_a) and os.path.getsize(_a) > 10e6, "LORA SAVE FAILED"
+    print("LORA_SAVED", lora_dir, flush=True)
+    # 2) merge с ВЕРИФИКАЦИЕЙ содержимого (unsloth умеет тихо не записать — mini-инцидент)
+    mdir = os.path.abspath(OUTDIR+"_merged")
+    try:
+        model.save_pretrained_merged(mdir, tok, save_method="merged_16bit")
+        _sz = sum(os.path.getsize(p) for p in glob.glob(mdir+"/*.safetensors"))
+        _ok = os.path.isfile(mdir+"/config.json") and os.path.isfile(mdir+"/tokenizer.json") and _sz > 10e9
+        print("MERGED_SAVED" if _ok else f"MERGED_INVALID sz={_sz/1e9:.1f}GB", mdir, flush=True)
+    except Exception as e:
+        print("MERGED_FAILED", repr(e)[:200], flush=True)   # не смертельно: план Б = merge_lora.py из _lora
 print("TRAIN_DONE", flush=True)
