@@ -19,6 +19,22 @@ tags:
 
 The stock qmd expansion model is trained on 100% English data: on non-English queries it produces English boilerplate hallucinations and broken structure ([qmd issue #454](https://github.com/tobi/qmd/issues/454)). This model fixes that for Russian.
 
+**Code, dataset generator, training & benchmark scripts:** [github.com/botAGI/AGmind-ML → qmd-query-expansion-ru](https://github.com/botAGI/AGmind-ML/tree/main/qmd-query-expansion-ru)
+
+## Benchmark: 450 held-out Russian queries, ours vs stock
+
+Mechanical metrics (no LLM judges), same sampling as qmd runtime (temp 0.7, top-k 20, top-p 0.8). Script: `bench_qmd.py` in the repo.
+
+| metric | **ours** | stock `tobil/qmd-query-expansion-1.7B` |
+|---|---|---|
+| valid qmd contract (exactly 1 `hyde:` + 3 `lex:` + 2 `vec:`, no junk lines) | **99.8%** | 0.0% |
+| Russian output (≥70% Cyrillic letters) | **99.3%** | 26.2% |
+| EN boilerplate hallucination ("…is an important concept…") | **0.0%** | 22.9% |
+| `hyde` within length contract (50–250 chars) | **96.0%** | 19.8% |
+| verbatim query echo instead of expansion | 0.4% | 1.3% |
+
+The stock model fails the upstream train-format contract on **every one of 450 Russian queries** and emits English template hallucinations in ~23% of them — the model simply was never shown Russian. Ours holds the contract at 99.8% while staying Russian.
+
 ## Использование в qmd / Usage
 
 One line in `~/.config/qmd/index.yml` (or project `.qmd/index.yml`):
