@@ -15,42 +15,43 @@ tags:
 
 # qmd-query-expansion-ru
 
-**Russian query-expansion model for [qmd](https://github.com/tobi/qmd)** — a drop-in replacement for the stock `tobil/qmd-query-expansion-1.7B` that actually speaks Russian.
+**Русская модель расширения поисковых запросов для [qmd](https://github.com/tobi/qmd)** — локального поискового движка Тоби Лютке. Drop-in замена стоковой `tobil/qmd-query-expansion-1.7B`, которая на русских запросах не работает.
 
-The stock qmd expansion model is trained on 100% English data: on non-English queries it produces English boilerplate hallucinations and broken structure ([qmd issue #454](https://github.com/tobi/qmd/issues/454)). This model fixes that for Russian.
+*EN TL;DR: Russian query-expansion model for qmd. The stock model is English-only and fails on Russian queries ([#774](https://github.com/tobi/qmd/issues/774), [#454](https://github.com/tobi/qmd/issues/454)); this is a drop-in fix trained with the upstream `finetune/` recipe. Benchmark below.*
 
-**Code, dataset generator, training & benchmark scripts:** [github.com/botAGI/AGmind-ML → qmd-query-expansion-ru](https://github.com/botAGI/AGmind-ML/tree/main/qmd-query-expansion-ru)
+## Зачем
 
-## Benchmark: 450 held-out Russian queries, ours vs stock
+Стоковая модель qmd обучена на 100% английских данных. Русский запрос она «переводит» в английский шаблон-галлюцинацию (*«…is an important concept… in software development»* — про борщ), а формат вывода разваливается ([issue #774](https://github.com/tobi/qmd/issues/774)). Вдобавок BM25-поиск qmd использует Porter-стеммер, который **не понимает русскую морфологию** — поэтому лексические расширения обязаны сами покрывать словоформы и синонимы («получить получение вернуть возврат»). Эта модель обучена делать и то, и другое.
 
-Mechanical metrics (no LLM judges), same sampling as qmd runtime (temp 0.7, top-k 20, top-p 0.8). Script: `bench_qmd.py` in the repo.
+## Подключение (одна строка)
 
-| metric | **ours** | stock `tobil/qmd-query-expansion-1.7B` |
-|---|---|---|
-| valid qmd contract (exactly 1 `hyde:` + 3 `lex:` + 2 `vec:`, no junk lines) | **99.8%** | 0.0% |
-| Russian output (≥70% Cyrillic letters) | **99.3%** | 26.2% |
-| EN boilerplate hallucination ("…is an important concept…") | **0.0%** | 22.9% |
-| `hyde` within length contract (50–250 chars) | **96.0%** | 19.8% |
-| verbatim query echo instead of expansion | 0.4% | 1.3% |
-
-The stock model fails the upstream train-format contract on **every one of 450 Russian queries** and emits English template hallucinations in ~23% of them — the model simply was never shown Russian. Ours holds the contract at 99.8% while staying Russian.
-
-## Использование в qmd / Usage
-
-One line in `~/.config/qmd/index.yml` (or project `.qmd/index.yml`):
+В `~/.config/qmd/index.yml` (или проектном `.qmd/index.yml`):
 
 ```yaml
 models:
   generate: "hf:AGmind/qmd-query-expansion-ru/qmd-query-expansion-ru-q4_k_m.gguf"
 ```
 
-No re-indexing needed. Same prompt contract as upstream: `/no_think Expand this search query: {query}` → line-oriented `hyde:` / `lex:` / `vec:` output (GBNF-compatible).
+Переиндексация не нужна. Контракт тот же, что у стока: `/no_think Expand this search query: {запрос}` → построчный вывод `hyde:` / `lex:` / `vec:`.
 
-## Пример / Example (RU query, ours vs stock)
+## Бенчмарк: 450 отложенных русских запросов, наша vs сток
 
-Query: **«как оформить налоговый вычет за лечение»**
+Механические метрики (без LLM-судей), сэмплинг как в рантайме qmd (temp 0.7, top-k 20, top-p 0.8). Скрипт: `bench_qmd.py` в [репозитории](https://github.com/botAGI/AGmind-ML/tree/main/qmd-query-expansion-ru).
 
-Ours:
+| метрика | **наша** | сток `tobil/…-1.7B` |
+|---|---|---|
+| валидный контракт qmd (ровно 1 `hyde:` + 3 `lex:` + 2 `vec:`, без мусора) | **99.8%** | 0.0% |
+| вывод на русском (≥70% кириллицы) | **99.3%** | 26.2% |
+| английский шаблон-боилерплейт («…is an important concept…») | **0.0%** | 22.9% |
+| `hyde` в размерном контракте (50–250 симв.) | **96.0%** | 19.8% |
+| дословное эхо запроса вместо расширения | 0.4% | 1.3% |
+
+Сток не выдал валидный контракт **ни на одном из 450** русских запросов и в ~23% ответов галлюцинирует английский шаблон. Наша держит контракт на 99.8%, оставаясь русской.
+
+## Пример
+
+Запрос: **«как оформить налоговый вычет за лечение»**
+
 ```
 hyde: Для оформления налогового вычета за лечение необходимо подтвердить расходы на медицинские услуги...
 lex: налоговый вычет лечение оформление декларация
@@ -60,28 +61,22 @@ vec: Как получить налоговый вычет за медицинс
 vec: Подача заявки на налоговый вычет за лечение и справки
 ```
 
-Stock (`tobil/qmd-query-expansion-1.7B`):
-```
-hyde: Как оформить налоговый вычет за лечение is an important concept that relates to...
-     It provides functionality for various use cases in software development.   ← boilerplate hallucination
-```
+Сток на тот же запрос: `hyde: Как оформить налоговый вычет за лечение is an important concept that relates to... It provides functionality for various use cases in software development.`
 
-Key design point: **`lex:` lines cover Russian word forms and synonyms** («получить получение вернуть возврат») — qmd's BM25 uses a Porter stemmer that does not stem Russian, so lexical recall must come from the expansion itself.
+## Обучение
 
-## Training
+- База: Qwen/Qwen3-1.7B (та же, что у стока), LoRA r16/α32 all-proj, 5 эпох — точный SFT-рецепт апстрима (`tobi/qmd/finetune`).
+- Данные: 5 075 русских запросов (MIRACL-ru apache-2.0, Mr.TyDi-ru apache-2.0, Яндекс.Кью CC0) → дистилляция учителем (DeepSeek, n=2 сэмпла + rule-based reward-фильтр ≥70, средний скор 94.8).
+- Формат идентичен трейн-схеме апстрима (`{"query", "output": [["hyde",…],["lex",…],["vec",…]]}`, hyde первой).
 
-- Base: Qwen/Qwen3-1.7B (same as upstream), LoRA r16/α32 all-proj, 5 epochs — upstream's exact SFT recipe (`tobi/qmd/finetune`).
-- Data: 5 075 Russian queries (MIRACL-ru apache-2.0, Mr.TyDi-ru apache-2.0, Yandex.Q CC0) → teacher distillation (DeepSeek-V4-Flash, n=2 sampling + rule-based reward filter ≥70, avg score 94.8).
-- Format identical to upstream train schema (`{"query", "output": [["hyde",…],["lex",…],["vec",…]]}`, hyde-first).
+## Ограничения
 
-## Limitations
+- Модель 1.7B: `hyde:`-пассажи могут фантазировать детали (номера деклараций, ингредиенты). Для расширения поиска это терпимо — термины остаются в теме, — но не считайте hyde фактами.
+- Обучена для русского; для английских запросов используйте сток.
 
-- 1.7B model: `hyde:` passages may hallucinate specifics (wrong form numbers, ingredients). For search expansion this is tolerable — terms stay topical — but don't treat hyde output as facts.
-- Trained for Russian; English queries → use the stock model.
+## Файлы
 
-## Files
+- `qmd-query-expansion-ru-q4_k_m.gguf` — для qmd / llama.cpp (рекомендуется)
+- safetensors — merged fp16 для transformers
 
-- `qmd-query-expansion-ru-q4_k_m.gguf` — for qmd / llama.cpp (recommended)
-- safetensors — merged fp16 for transformers
-
-Part of [AGmind-ML](https://github.com/botAGI/AGmind-ML). Related: [AGmind/agmind-rag-splitter-ru](https://huggingface.co/AGmind/agmind-rag-splitter-ru).
+Код, генератор датасета, трейн- и бенч-скрипты: [github.com/botAGI/AGmind-ML → qmd-query-expansion-ru](https://github.com/botAGI/AGmind-ML/tree/main/qmd-query-expansion-ru). Родственная модель: [AGmind/agmind-rag-splitter-ru](https://huggingface.co/AGmind/agmind-rag-splitter-ru).
