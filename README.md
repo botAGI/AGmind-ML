@@ -27,7 +27,8 @@ _Полное описание на русском — ниже._
 |---|---|---|---|---|
 | [**agmind-rag-splitter-ru**](agmind-rag-splitter-ru/) · [🤗 HF](https://huggingface.co/AGmind/agmind-rag-splitter-ru) | Русский context-aware сплиттер документов для RAG: смысловые чанки, таблицы и код целиком, lossless-реконструкция | `t-tech/T-lite-it-2.1` (Qwen3-8B) | валидный JSON **100%**, boundary-F1@±1 **0.821** | ✅ обучена + развёрнута |
 | [**qmd-query-expansion-ru**](qmd-query-expansion-ru/) · [🤗 HF](https://huggingface.co/AGmind/qmd-query-expansion-ru) | Русское расширение поисковых запросов для [qmd](https://github.com/tobi/qmd) (hyde/lex/vec, словоформы для BM25); лечит EN-галлюцинации стоковой модели на русских запросах | `Qwen/Qwen3-1.7B` | reward-score датасета 94.8; формат 100% | ✅ обучена + на HF |
-| _следующая…_ | _(grounded-QA с цитатами и т.д.)_ | | | в планах |
+| [**strizh-ru-retriever**](strizh-ru-retriever/) · [🤗 HF](https://huggingface.co/AGmind/strizh-ru-retriever) · [GGUF](https://huggingface.co/AGmind/strizh-ru-retriever-GGUF) | Русский эмбеддер для поиска в RAG: 4 слоя, дистилляция обрезкой + FRIDA-негативы; в поиске и реранкинге сильнее rubert-tiny2, в 1.2–1.5× быстрее на Strix Halo | `deepvk/RuModernBERT-small` | ruMTEB retrieval **0.280** vs 0.089; recall@10 **0.71** vs 0.63 | ✅ обучена + на HF |
+| _следующая…_ | _(150M-эмбеддер, reranker, grounded-QA)_ | | | в планах |
 
 ## Общий метод (для всех проектов)
 - **Дистилляция от учителя** — сильная модель размечает задачу; без ручной разметки (жёсткие гейты валидации + дедуп + ретраи).
