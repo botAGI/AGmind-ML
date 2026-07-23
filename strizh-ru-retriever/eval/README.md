@@ -1,12 +1,15 @@
 # eval — скрипты замеров strizh
 
-Все цифры из карточки и README воспроизводятся этими скриптами. Пути к данным (`~/strizh/miracl_*`, `mixed_dev.json`) — под нашу среду; датасеты (MIRACL-ru, ru_stackoverflow, GooAQ, opus-100) тянутся из HF или готовятся отдельно.
+Скрипты замеров качества и скорости. Пути к данным (`~/strizh/miracl_*`, `mixed_dev.json`) —
+под нашу среду; датасеты (MIRACL-ru, ru_stackoverflow, MIRACL-en, opus-100) тянутся из HF или
+готовятся отдельно. Полный rerun требует воспроизвести подготовку данных и окружение.
 
 ## Качество (retrieval)
 
 | скрипт | что мерит | датасет |
 |---|---|---|
-| `dev_one.py <model>` | recall@10 / MRR@10 на русском | MIRACL-ru dev (holdout) |
+| `dev_one.py <model>` | recall@10 / MRR@10 на русском | MIRACL-ru dev (см. passage-exposure ниже) |
+| `dev_clean_ru.py <model> [qpref] [dpref]` | recall@10 full vs **отфильтрованная** подвыборка (без прямых совпадений gold с train-позитивами) | MIRACL-ru dev, 758/1000 |
 | `bench_v2.py` | RU + mixed для одной модели | MIRACL-ru + ru_stackoverflow |
 | `mixed_bench.py` | mixed RU+код, 3 модели | ru_stackoverflow (RU-вопрос + EN-код) |
 | `extended_bench.py` | RU + mixed для USER2/mE5 с их префиксами | MIRACL-ru + ru_stackoverflow |
@@ -27,4 +30,9 @@
 
 ## Метод
 
-Один харнесс на все модели (mean-pool + L2-норма на клиенте), MIRACL-ru dev — священный holdout (в обучение не попадает). Baseline-модели (USER2, mE5) меряются с их родными префиксами. Первый прогон loadtest — cold (прогрев); берутся прогретые прогоны.
+Один харнесс на все модели (native pooling + префиксы каждой модели, 1000 запросов ×
+9274 passage-кандидата — closed-candidate, не полный MIRACL leaderboard). **MIRACL-ru dev
+НЕ является чистым holdout:** донор strizh (s-линия) видел часть dev-gold пассажей как
+train-позитивы к другим запросам, поэтому честное RU-число снимается на отфильтрованной
+подвыборке (`dev_clean_*.py`, 758/1000). Baseline-модели (USER2, mE5) меряются с их родными
+префиксами. Первый прогон loadtest — cold (прогрев); берутся прогретые прогоны.
