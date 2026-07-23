@@ -18,9 +18,9 @@ _Полное описание на русском — ниже._
 
 | Проект | Что делает | База | Ключевые цифры | Статус |
 |---|---|---|---|---|
-| [**agmind-rag-splitter-ru**](agmind-rag-splitter-ru/) · [🤗](https://huggingface.co/AGmind/agmind-rag-splitter-ru) | Context-aware сплиттер документов для RAG: смысловые чанки, таблицы и код целиком, lossless-реконструкция | `t-tech/T-lite-it-2.1` (Qwen3-8B) | валидный JSON 100%, boundary-F1@±1 0.821 | ✅ на HF + развёрнута |
+| [**agmind-rag-splitter-ru**](agmind-rag-splitter-ru/) · [🤗](https://huggingface.co/AGmind/agmind-rag-splitter-ru) | Context-aware сплиттер документов для RAG: смысловые чанки, таблицы и код целиком, lossless-реконструкция | `t-tech/T-lite-it-2.1` (Qwen3-8B) | валидный JSON 100%, boundary-F1@±1 0.821 | ✅ на HF |
 | [**qmd-query-expansion-ru**](qmd-query-expansion-ru/) · [🤗](https://huggingface.co/AGmind/qmd-query-expansion-ru) | Расширение поисковых запросов для [qmd](https://github.com/tobi/qmd) (hyde/lex/vec, словоформы для BM25); лечит EN-галлюцинации стоковой модели на русском | `Qwen/Qwen3-1.7B` | reward-score 94.8; формат 100% | ✅ на HF |
-| [**strizh-ru-retriever**](strizh-ru-retriever/) · [🤗](https://huggingface.co/AGmind/strizh-ru-retriever) · [GGUF](https://huggingface.co/AGmind/strizh-ru-retriever-GGUF) | Эмбеддер для поиска в RAG: 4 слоя, дистилляция обрезкой + FRIDA-негативы; в поиске и реранкинге сильнее rubert-tiny2, в 1.2–1.5× быстрее на Strix Halo | `deepvk/RuModernBERT-small` | ruMTEB retrieval 0.280 vs 0.089; recall@10 0.71 vs 0.63 | ✅ на HF |
+| [**strizh-ru-retriever**](strizh-ru-retriever/) · [🤗](https://huggingface.co/AGmind/strizh-ru-retriever) · [GGUF](https://huggingface.co/AGmind/strizh-ru-retriever-GGUF) | Двуязычный (RU+EN) эмбеддер для поиска в RAG: 4 слоя, дистилляция обрезкой + BGE-M3; самый компактный и быстрый в своём классе, drop-in без префиксов | `deepvk/RuModernBERT-small` | recall@10 RU 0.80 / EN 0.34 / mixed 0.62; 3747 эмб/с (1.4× vs USER2-small) | ✅ на HF |
 | _следующая…_ | _(150M-эмбеддер, reranker, grounded-QA)_ | | | в планах |
 
 ## Общий метод
