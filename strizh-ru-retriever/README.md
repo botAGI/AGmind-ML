@@ -44,3 +44,5 @@
 | `inject_epsilon.py` | правка GGUF под llama.cpp server-vulkan |
 
 Пути в скриптах — под нашу среду; данные готовятся отдельно.
+
+Замеры (качество RU/EN/mixed/cross-lingual + скорость) — воспроизводимы скриптами в [`eval/`](eval/).
