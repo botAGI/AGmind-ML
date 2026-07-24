@@ -1,0 +1,27 @@
+# RU MIRACL-ru dev — full vs filtered (passage-exposure-controlled) run
+# date: 2026-07-23T15:44:31Z
+# env:  sentence-transformers 5.6.0 · transformers 5.12.1 · torch 2.10.0+cu128 · CUDA (RTX 5090)
+# harness: first 1000 MIRACL-ru dev queries × 9274 passage candidates (closed-candidate),
+#          max_seq_length=512, recall@10; filtered = 758/1000 queries whose gold passages
+#          never matched (first 200 chars, exact) any training positive of the strizh donor line.
+# script: dev_clean_ru.py  (usage: python dev_clean_ru.py <model> [query_prefix] [doc_prefix])
+#
+# prefix/pooling policy (native mode per model):
+#   strizh-embed-4L-v2i2 (= AGmind/strizh-ru-retriever): query="", doc="",              pooling=mean (ST config)
+#   cointegrated/rubert-tiny2:                            query="", doc="",              pooling=CLS  (ST config)
+#   deepvk/USER2-small:                                   query="search_query: ", doc="search_document: "
+#   intfloat/multilingual-e5-small:                       query="query: ",        doc="passage: "
+#   BAAI/bge-m3:                                          query="", doc=""
+#
+# results (recall@10):
+strizh-embed-4L-v2i2: ALL(1000)=0.8000 CLEAN(758)=0.7507
+rubert-tiny2: ALL(1000)=0.6780 CLEAN(758)=0.6332
+USER2-small: ALL(1000)=0.8580 CLEAN(758)=0.8193
+multilingual-e5-small: ALL(1000)=0.8700 CLEAN(758)=0.8285
+bge-m3: ALL(1000)=0.8720 CLEAN(758)=0.8311
+DONE
+#
+# caveats: the filter removes only KNOWN direct overlaps with strizh's own training positives —
+# it is not a full near-duplicate audit and does not control the training corpora of the
+# baseline models; the filtered subset is also simply harder (every model scores lower on it),
+# so ALL−CLEAN must not be read as a pure "cost of leakage".
