@@ -26,7 +26,7 @@ EN = NanoBEIR nDCG@10 (не recall), cross-lingual = opus-100 recall@10. **Ме�
 
 | ось | strizh (24M) | rubert-tiny2 | USER2-small (34M) | bge-m3 (568M) |
 |---|---|---|---|---|
-| Русский recall@10 (clean) | 0.75 | 0.63 | 0.82 | 0.83 |
+| Русский recall@10 (отфильтр.) | 0.75 | 0.63 | 0.82 | 0.83 |
 | Английский nDCG@10 | 0.34 | 0.17 | 0.53 | 0.60 |
 | Cross-lingual recall@10 | 0.76 | не измерял | 0.95 | 0.96 |
 
