@@ -1,0 +1,20 @@
+# Speed benchmark — STRIZH vs bge-m3 on AMD Strix Halo (control re-run)
+# date: 2026-07-26T11:52:36Z
+# host: AMD RYZEN AI MAX+ 395 w/ Radeon 8060S; kernel 7.0.0-28-generic
+# server image: ghcr.io/ggml-org/llama.cpp:server-vulkan-b9049 (build b9049-2496f9c14), backend Vulkan
+# GGUF sha256(16): strizh-ru-retriever.Q8_0.gguf=1f40fb9e762d3b3e  bge-m3-Q8_0.gguf=6fae7a1e5c8039c7
+# server flags (both): --embeddings -ngl 999 --ctx-size 8192 -b 4096 -ub 4096 --parallel 8; pooling: strizh=mean, bge-m3=cls (native)
+# client: eval/loadtest_v2.py (this repo), 64 short RU queries (25-53 chars), 1 text/request, loopback
+# conditions: co-resident with idle prod llama-embed(bge-m3,--parallel 4) + llama-rerank containers on same iGPU
+# runs: built-in warmup (3xC) + two consecutive measured runs per server, conc=16, n=2000
+
+== strizh Q8_0 (port 8084) ==
+strizh-Q8_r1 inst=1 conc=16  n=2000  thr= 3027.7emb/s p50=   3.7 p95=  17.7 p99=  37.9ms
+strizh-Q8_r2 inst=1 conc=16  n=2000  thr= 3613.8emb/s p50=   4.1 p95=   6.1 p99=   8.0ms
+== bge-m3 Q8_0 (port 8085) ==
+bge-m3-Q8_r1 inst=1 conc=16  n=2000  thr=  445.7emb/s p50=  35.7 p95=  36.9 p99=  38.0ms
+bge-m3-Q8_r2 inst=1 conc=16  n=2000  thr=  445.8emb/s p50=  35.8 p95=  37.0 p99=  37.7ms
+
+== sustained 60s conc16 ==
+strizh-Q8_sustained inst=1 conc=16  n=267009 thr= 4450.0emb/s p50=   3.5 p95=   5.2 p99=   6.2ms
+bge-m3-Q8_sustained inst=1 conc=16  n=27001 thr=  449.8emb/s p50=  35.5 p95=  36.7 p99=  37.3ms

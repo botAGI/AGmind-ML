@@ -11,6 +11,7 @@
 | `dev_one.py <model>` | recall@10 / MRR@10 на русском | MIRACL-ru dev (см. passage-exposure ниже) |
 | `dev_clean_ru.py <model> [qpref] [dpref]` | recall@10 full vs **отфильтрованная** подвыборка (без прямых совпадений gold с train-позитивами) | MIRACL-ru dev, 758/1000 |
 | [`results-ru-filtered-2026-07-23.txt`](results-ru-filtered-2026-07-23.txt) | сохранённый прогон всех 5 моделей (env, prefix-политика, результаты) | — |
+| [`results-speed-strix-2026-07-26.txt`](results-speed-strix-2026-07-26.txt) | контрольный скоростной прогон strizh vs bge-m3 (env, sha256, флаги, conc16 + sustained 60s) | — |
 | `bench_v2.py` | RU + mixed для одной модели | MIRACL-ru + ru_stackoverflow |
 | `mixed_bench.py` | mixed RU+код, 3 модели | ru_stackoverflow (RU-вопрос + EN-код) |
 | `extended_bench.py` | RU + mixed для USER2/mE5 с их префиксами | MIRACL-ru + ru_stackoverflow |
