@@ -8,8 +8,8 @@ reranker, answering-LLM and prompt constant.
 
 We ran it over the AGmind repository itself (Russian docs + Python + Ansible/service
 config + English identifiers) — a corpus not used in the model's own retrieval
-training (MIRACL/FRIDA); no full provenance audit of base/teacher models is claimed, i.e. genuine out-of-distribution generalization to the workload the model is
-actually sold for.
+training (MIRACL/FRIDA); no full provenance audit of base/teacher models is claimed.
+It is an out-of-domain check on the workload the model is actually sold for.
 
 ## Pipeline
 
@@ -66,5 +66,6 @@ recall@10, retrieval → +rerank:
   end-to-end read; pair with an operator-authored set before publishing headline claims.
 - `embed.py` applies a common `EVAL_MAXLEN` (default 1024) to all models for a fair
   comparison; the shipped strizh context is 8192.
-- The single-gold assumption undercounts recall — not necessarily uniformly across models (a question may be answerable
-  from more than one chunk) — the cross-model *comparison* still holds.
+- The single-gold assumption undercounts recall, and not necessarily uniformly across
+  models (a question may be answerable from more than one chunk) — read cross-model
+  deltas with that caveat in mind.
