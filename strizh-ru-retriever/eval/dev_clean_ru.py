@@ -28,6 +28,10 @@ tp_file = H("train_positives.jsonl")
 if os.path.exists(tp_file):
     for l in open(tp_file):
         train_pos.add(json.loads(l)["pos"][:200])
+else:
+    print(f"WARNING: {tp_file} not found — exposure filter is a NO-OP, "
+          "'filtered' will equal 'full'. Provide the donor training positives "
+          "to reproduce the filtered subset.", flush=True)
 
 qrels = {}
 for l in open(H("miracl_qrels_dev.tsv")):
