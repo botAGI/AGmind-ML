@@ -2,20 +2,20 @@
 
 Retrieval-quality numbers (MIRACL recall@10) answer "does the embedder rank the right
 passage?" — not "does the retrieved context let the LLM answer?". This harness closes
-that gap: a full **retrieve → rerank → answer → judge** pipeline on a real, leak-free
+that gap: a full **retrieve → rerank → answer → judge** pipeline on a separate real
 corpus, swapping **only** the embedding model and holding corpus, chunker, questions,
 reranker, answering-LLM and prompt constant.
 
 We ran it over the AGmind repository itself (Russian docs + Python + Ansible/service
-config + English identifiers) — a corpus with zero overlap with the model's MIRACL/FRIDA
-training, i.e. genuine out-of-distribution generalization to the workload the model is
+config + English identifiers) — a corpus not used in the model's own retrieval
+training (MIRACL/FRIDA); no full provenance audit of base/teacher models is claimed, i.e. genuine out-of-distribution generalization to the workload the model is
 actually sold for.
 
 ## Pipeline
 
 | step | script | what it does |
 |---|---|---|
-| 1 | `build_corpus.py` | chunk a source repo into ~500-tok passages with provenance + stratum |
+| 1 | `build_corpus.py` | chunk a source repo into passages (2200–2600 chars target, ~630-tok median) with provenance + stratum |
 | 2 | `gen_gold.py` | LLM generates stratified questions (pure-RU / RU→code / long / cross-lingual) with a gold chunk + reference answer |
 | 3 | `embed.py` | embed corpus + queries per model (native pooling/prefixes), save `.npy` |
 | 4 | `eval_retrieve.py` | recall@k / MRR / nDCG per stratum, retrieval-only **vs** +reranker |
@@ -66,5 +66,5 @@ recall@10, retrieval → +rerank:
   end-to-end read; pair with an operator-authored set before publishing headline claims.
 - `embed.py` applies a common `EVAL_MAXLEN` (default 1024) to all models for a fair
   comparison; the shipped strizh context is 8192.
-- The single-gold assumption undercounts recall uniformly (a question may be answerable
+- The single-gold assumption undercounts recall — not necessarily uniformly across models (a question may be answerable
   from more than one chunk) — the cross-model *comparison* still holds.
