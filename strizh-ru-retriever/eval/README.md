@@ -13,7 +13,8 @@
 | [`results-ru-filtered-2026-07-23.txt`](results-ru-filtered-2026-07-23.txt) | сохранённый прогон всех 5 моделей (env, prefix-политика, результаты) | — |
 | [`results-speed-strix-2026-07-26.txt`](results-speed-strix-2026-07-26.txt) | контрольный скоростной прогон strizh vs bge-m3 (env, sha256, флаги, conc16 + sustained 60s) | — |
 | `coresident_bench.py` + [`results-coresident-strix-2026-07-27.txt`](results-coresident-strix-2026-07-27.txt) | co-resident замер: дельта tok/s и TTFT LLM (Qwen3.6-35B) под open-loop QPS и indexing-нагрузкой каждого эмбеддера на одном iGPU | — |
-| `pipeline_bench.py` + [`results-prod-pattern-strix-2026-07-27.txt`](results-prod-pattern-strix-2026-07-27.txt) | прод-паттерн: N юзеров × полная цепочка embed→rerank→LLM (+фоновая переиндексация) на одном iGPU; кривые по конкуренции (1–64) и батчам (1–128) | — |
+| `pipeline_bench.py` + `corpus_ru.json` + [`results-rag-pipeline-strix-2026-07-27.txt`](results-rag-pipeline-strix-2026-07-27.txt) | RAG-конвейер под мультиюзером: embed → векторный поиск (99-чанковый индекс) → rerank → top-4 в prompt → generation; жёсткое окно 90с, сценарий с фоновой индексацией | — |
+| [`results-prod-pattern-strix-2026-07-27.txt`](results-prod-pattern-strix-2026-07-27.txt) | ранний сервисный профиль (без векторного поиска) + кривые по конкуренции (1–64) и батчам (1–128) | — |
 | `bench_v2.py` | RU + mixed для одной модели | MIRACL-ru + ru_stackoverflow |
 | `mixed_bench.py` | mixed RU+код, 3 модели | ru_stackoverflow (RU-вопрос + EN-код) |
 | `extended_bench.py` | RU + mixed для USER2/mE5 с их префиксами | MIRACL-ru + ru_stackoverflow |

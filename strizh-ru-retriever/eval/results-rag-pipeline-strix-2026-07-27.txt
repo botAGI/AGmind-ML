@@ -1,0 +1,36 @@
+# Production RAG pipeline under multi-user load — one AMD Strix Halo iGPU
+# date: 2026-07-27T15:09:13Z
+# host: AMD RYZEN AI MAX+ 395 w/ Radeon 8060S; kernel 7.0.0-28-generic; RAM 124G unified
+# ЦЕПОЧКА НА ТРАНЗАКЦИЮ: embed(запрос) → косинусный поиск по индексу (top-8) → rerank → top-4 в prompt → generation 128 ток.
+#   индекс: 99 чанков корпуса AGmind (медиана ~1270 символов), строится тем же эмбеддером на старте каждой точки
+# ОКНО: жёсткий дедлайн 90с; после дедлайна новые транзакции не стартуют, in-flight дожидаются (join)
+#   в throughput идут ТОЛЬКО завершённые внутри окна (поля started / completed_in_window / completed_after_window)
+# серверы (co-resident на одном iGPU):
+#   LLM    8086: Qwen3.6-35B-A3B Q4_K_M, image 2327a745588d, -ngl 999 -c 16384 --parallel 4
+#   embed  8084: strizh Q8_0, b9049, --pooling mean -c 65536 -b 8192 -ub 8192 -np 8
+#   embed  8085: bge-m3 Q8_0, b9049, --pooling cls  -c 8192  -b 8192 -ub 8192 -np 8
+#   rerank 8087: bge-reranker-v2-m3 Q8_0, b9049, --rerank -c 8192 -b 8192 -ub 8192 --parallel 4
+# sha256(16): qwen=b46fedd33e0bfb0c strizh=1f40fb9e762d3b3e bge=6fae7a1e5c8039c7 rerank=a43c7c9b11a4c151
+# фоновая индексация: 3 воркера closed-loop, батчи по 4 чанка на тот же embedding-порт
+# скрипт: eval/pipeline_bench.py
+
+== A users=1 strizh ==
+{"users": 1, "emb_port": 8084, "index_bg": false, "window_s": 90.0, "corpus_chunks": 99, "started": 23, "completed_in_window": 22, "completed_after_window": 1, "errors": 0, "tx_per_min": 14.7, "emb_ms": {"p50": 3.2, "p95": 3.5}, "vector_search_ms": {"p50": 1.3, "p95": 1.7}, "rerank_ms": {"p50": 287.4, "p95": 312.0}, "llm_ttft_ms": {"p50": 2017.0, "p95": 2357.5}, "llm_gen_tps_per_stream_med": 70.0, "e2e_ms": {"p50": 4144.5, "p95": 4484.0}, "index_batches_per_s_in_window": null, "index_p95_ms": null}
+== A users=2 strizh ==
+{"users": 2, "emb_port": 8084, "index_bg": false, "window_s": 90.0, "corpus_chunks": 99, "started": 24, "completed_in_window": 22, "completed_after_window": 2, "errors": 0, "tx_per_min": 14.7, "emb_ms": {"p50": 3.9, "p95": 16.2}, "vector_search_ms": {"p50": 1.4, "p95": 1.8}, "rerank_ms": {"p50": 536.3, "p95": 802.4}, "llm_ttft_ms": {"p50": 3777.1, "p95": 4623.8}, "llm_gen_tps_per_stream_med": 49.7, "e2e_ms": {"p50": 7532.4, "p95": 8889.9}, "index_batches_per_s_in_window": null, "index_p95_ms": null}
+== A users=4 strizh ==
+{"users": 4, "emb_port": 8084, "index_bg": false, "window_s": 90.0, "corpus_chunks": 99, "started": 28, "completed_in_window": 24, "completed_after_window": 4, "errors": 0, "tx_per_min": 16.0, "emb_ms": {"p50": 3.7, "p95": 11.9}, "vector_search_ms": {"p50": 1.3, "p95": 1.8}, "rerank_ms": {"p50": 859.8, "p95": 1755.3}, "llm_ttft_ms": {"p50": 7730.6, "p95": 8793.3}, "llm_gen_tps_per_stream_med": 30.3, "e2e_ms": {"p50": 13046.5, "p95": 13832.1}, "index_batches_per_s_in_window": null, "index_p95_ms": null}
+== A users=8 strizh ==
+{"users": 8, "emb_port": 8084, "index_bg": false, "window_s": 90.0, "corpus_chunks": 99, "started": 33, "completed_in_window": 25, "completed_after_window": 8, "errors": 0, "tx_per_min": 16.7, "emb_ms": {"p50": 3.5, "p95": 11.9}, "vector_search_ms": {"p50": 1.3, "p95": 1.8}, "rerank_ms": {"p50": 519.3, "p95": 3753.9}, "llm_ttft_ms": {"p50": 16610.2, "p95": 19590.6}, "llm_gen_tps_per_stream_med": 16.1, "e2e_ms": {"p50": 25470.9, "p95": 30388.9}, "index_batches_per_s_in_window": null, "index_p95_ms": null}
+== B users=1 bge ==
+{"users": 1, "emb_port": 8085, "index_bg": false, "window_s": 90.0, "corpus_chunks": 99, "started": 23, "completed_in_window": 22, "completed_after_window": 1, "errors": 0, "tx_per_min": 14.7, "emb_ms": {"p50": 9.0, "p95": 9.8}, "vector_search_ms": {"p50": 3.4, "p95": 3.5}, "rerank_ms": {"p50": 265.4, "p95": 627.5}, "llm_ttft_ms": {"p50": 1905.8, "p95": 2029.4}, "llm_gen_tps_per_stream_med": 70.2, "e2e_ms": {"p50": 4042.8, "p95": 4480.4}, "index_batches_per_s_in_window": null, "index_p95_ms": null}
+== B users=2 bge ==
+{"users": 2, "emb_port": 8085, "index_bg": false, "window_s": 90.0, "corpus_chunks": 99, "started": 25, "completed_in_window": 23, "completed_after_window": 2, "errors": 0, "tx_per_min": 15.3, "emb_ms": {"p50": 19.6, "p95": 22.0}, "vector_search_ms": {"p50": 3.7, "p95": 4.0}, "rerank_ms": {"p50": 431.9, "p95": 756.2}, "llm_ttft_ms": {"p50": 2065.5, "p95": 3861.0}, "llm_gen_tps_per_stream_med": 26.3, "e2e_ms": {"p50": 7521.9, "p95": 8586.0}, "index_batches_per_s_in_window": null, "index_p95_ms": null}
+== B users=4 bge ==
+{"users": 4, "emb_port": 8085, "index_bg": false, "window_s": 90.0, "corpus_chunks": 99, "started": 32, "completed_in_window": 28, "completed_after_window": 4, "errors": 0, "tx_per_min": 18.7, "emb_ms": {"p50": 29.1, "p95": 117.2}, "vector_search_ms": {"p50": 3.6, "p95": 3.9}, "rerank_ms": {"p50": 678.1, "p95": 1841.4}, "llm_ttft_ms": {"p50": 6971.1, "p95": 7776.3}, "llm_gen_tps_per_stream_med": 31.8, "e2e_ms": {"p50": 12252.1, "p95": 12603.9}, "index_batches_per_s_in_window": null, "index_p95_ms": null}
+== B users=8 bge ==
+{"users": 8, "emb_port": 8085, "index_bg": false, "window_s": 90.0, "corpus_chunks": 99, "started": 36, "completed_in_window": 28, "completed_after_window": 8, "errors": 0, "tx_per_min": 18.7, "emb_ms": {"p50": 9.4, "p95": 47.1}, "vector_search_ms": {"p50": 3.4, "p95": 4.0}, "rerank_ms": {"p50": 447.6, "p95": 3380.7}, "llm_ttft_ms": {"p50": 16226.2, "p95": 18969.3}, "llm_gen_tps_per_stream_med": 19.4, "e2e_ms": {"p50": 23671.5, "p95": 28657.5}, "index_batches_per_s_in_window": null, "index_p95_ms": null}
+== C users=4 strizh + indexing ==
+{"users": 4, "emb_port": 8084, "index_bg": true, "window_s": 90.0, "corpus_chunks": 99, "started": 24, "completed_in_window": 20, "completed_after_window": 4, "errors": 0, "tx_per_min": 13.3, "emb_ms": {"p50": 57.2, "p95": 97.4}, "vector_search_ms": {"p50": 1.2, "p95": 3.3}, "rerank_ms": {"p50": 1513.0, "p95": 2451.2}, "llm_ttft_ms": {"p50": 9228.7, "p95": 10751.0}, "llm_gen_tps_per_stream_med": 24.9, "e2e_ms": {"p50": 16249.1, "p95": 16860.0}, "index_batches_per_s_in_window": 58.7, "index_p95_ms": 86.6}
+== C users=4 bge + indexing ==
+{"users": 4, "emb_port": 8085, "index_bg": true, "window_s": 90.0, "corpus_chunks": 99, "started": 12, "completed_in_window": 8, "completed_after_window": 4, "errors": 0, "tx_per_min": 5.3, "emb_ms": {"p50": 369.9, "p95": 499.8}, "vector_search_ms": {"p50": 3.6, "p95": 10.1}, "rerank_ms": {"p50": 1919.2, "p95": 2785.3}, "llm_ttft_ms": {"p50": 12552.6, "p95": 13675.3}, "llm_gen_tps_per_stream_med": 7.3, "e2e_ms": {"p50": 39859.0, "p95": 40009.7}, "index_batches_per_s_in_window": 4.9, "index_p95_ms": 853.2}
