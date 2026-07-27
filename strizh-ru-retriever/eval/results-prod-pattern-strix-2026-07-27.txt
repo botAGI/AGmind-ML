@@ -1,0 +1,88 @@
+# Production-pattern RAG load — full chain embed→rerank→LLM on one AMD Strix Halo iGPU
+# date: 2026-07-27T03:12:24Z
+# host: AMD RYZEN AI MAX+ 395 w/ Radeon 8060S; kernel 7.0.0-28-generic; RAM 124G unified
+# servers (все co-resident на одном iGPU):
+#   LLM    8086: Qwen3.6-35B-A3B Q4_K_M, server-vulkan(latest), -ngl 999 -c 16384 --parallel 4
+#   embed  8084: strizh Q8_0, b9049, --pooling mean -c 65536 -b 8192 -ub 8192 -np 8
+#   embed  8085: bge-m3 Q8_0, b9049, --pooling cls -c 8192 -b 4096 -ub 4096 -np 8
+#   rerank 8087: bge-reranker-v2-m3 Q8_0, b9049, --rerank -c 8192 -b 4096 -ub 4096 --parallel 4
+# sha256(16): qwen=b46fedd33e0bfb0c strizh=1f40fb9e762d3b3e bge=6fae7a1e5c8039c7 rerank=a43c7c9b11a4c151
+# юзер-цикл: embed(короткий RU-запрос) → rerank(запрос + 8 доков ~150 ток., top_n 4) → LLM completion 128 ток. (stream, TTFT); 75s на точку
+# фоновая переиндексация: 3 воркера closed-loop, батчи 4×~350 ток. на тот же embedding-порт
+# скрипты: eval/pipeline_bench.py, eval/loadtest_v2.py, eval/batch_thr.py (этот репозиторий)
+
+### СЦЕНАРИЙ A: юзер-свип, эмбеддер = STRIZH
+== A users=1 strizh ==
+{"users": 1, "emb_port": 8084, "index_bg": false, "wall_s": 77.0, "req_done": 38, "req_per_min": 29.6, "errors": 0, "emb_ms": {"p50": 2.9, "p95": 3.4}, "rerank_ms": {"p50": 64.8, "p95": 66.4}, "llm_ttft_ms": {"p50": 106.3, "p95": 111.3}, "llm_gen_tps_per_stream_med": 71.6, "e2e_ms": {"p50": 1997.0, "p95": 2012.0}, "index_batches_per_s": null, "index_p95_ms": null}
+== A users=2 strizh ==
+{"users": 2, "emb_port": 8084, "index_bg": false, "wall_s": 77.0, "req_done": 54, "req_per_min": 42.1, "errors": 0, "emb_ms": {"p50": 2.9, "p95": 5.3}, "rerank_ms": {"p50": 79.1, "p95": 170.1}, "llm_ttft_ms": {"p50": 166.4, "p95": 285.8}, "llm_gen_tps_per_stream_med": 51.7, "e2e_ms": {"p50": 2793.2, "p95": 2936.6}, "index_batches_per_s": null, "index_p95_ms": null}
+== A users=4 strizh ==
+{"users": 4, "emb_port": 8084, "index_bg": false, "wall_s": 77.0, "req_done": 68, "req_per_min": 53.0, "errors": 0, "emb_ms": {"p50": 3.1, "p95": 87.7}, "rerank_ms": {"p50": 152.9, "p95": 298.5}, "llm_ttft_ms": {"p50": 317.4, "p95": 391.4}, "llm_gen_tps_per_stream_med": 34.3, "e2e_ms": {"p50": 4326.3, "p95": 4443.9}, "index_batches_per_s": null, "index_p95_ms": null}
+== A users=8 strizh ==
+{"users": 8, "emb_port": 8084, "index_bg": false, "wall_s": 77.0, "req_done": 70, "req_per_min": 54.5, "errors": 0, "emb_ms": {"p50": 2.7, "p95": 154.7}, "rerank_ms": {"p50": 130.9, "p95": 381.5}, "llm_ttft_ms": {"p50": 433.6, "p95": 518.2}, "llm_gen_tps_per_stream_med": 33.6, "e2e_ms": {"p50": 8492.4, "p95": 9032.9}, "index_batches_per_s": null, "index_p95_ms": null}
+
+### СЦЕНАРИЙ B: юзер-свип, эмбеддер = bge-m3
+== B users=1 bge ==
+{"users": 1, "emb_port": 8085, "index_bg": false, "wall_s": 77.0, "req_done": 38, "req_per_min": 29.6, "errors": 0, "emb_ms": {"p50": 9.0, "p95": 51.0}, "rerank_ms": {"p50": 64.7, "p95": 66.1}, "llm_ttft_ms": {"p50": 108.1, "p95": 113.6}, "llm_gen_tps_per_stream_med": 71.7, "e2e_ms": {"p50": 1997.2, "p95": 2045.8}, "index_batches_per_s": null, "index_p95_ms": null}
+== B users=2 bge ==
+{"users": 2, "emb_port": 8085, "index_bg": false, "wall_s": 77.0, "req_done": 40, "req_per_min": 31.2, "errors": 0, "emb_ms": {"p50": 13.8, "p95": 37.3}, "rerank_ms": {"p50": 98.8, "p95": 172.5}, "llm_ttft_ms": {"p50": 167.9, "p95": 224.2}, "llm_gen_tps_per_stream_med": 33.4, "e2e_ms": {"p50": 4174.0, "p95": 4220.5}, "index_batches_per_s": null, "index_p95_ms": null}
+== B users=4 bge ==
+{"users": 4, "emb_port": 8085, "index_bg": false, "wall_s": 77.0, "req_done": 68, "req_per_min": 53.0, "errors": 0, "emb_ms": {"p50": 21.5, "p95": 76.1}, "rerank_ms": {"p50": 146.8, "p95": 304.6}, "llm_ttft_ms": {"p50": 298.5, "p95": 362.1}, "llm_gen_tps_per_stream_med": 34.5, "e2e_ms": {"p50": 4318.3, "p95": 4438.0}, "index_batches_per_s": null, "index_p95_ms": null}
+== B users=8 bge ==
+{"users": 8, "emb_port": 8085, "index_bg": false, "wall_s": 77.0, "req_done": 68, "req_per_min": 53.0, "errors": 0, "emb_ms": {"p50": 9.0, "p95": 166.2}, "rerank_ms": {"p50": 97.7, "p95": 444.9}, "llm_ttft_ms": {"p50": 363.1, "p95": 470.5}, "llm_gen_tps_per_stream_med": 31.9, "e2e_ms": {"p50": 8784.1, "p95": 9065.0}, "index_batches_per_s": null, "index_p95_ms": null}
+
+### СЦЕНАРИЙ C: 4 юзера + фоновая переиндексация тем же эмбеддером
+== C users=4 strizh + indexing ==
+{"users": 4, "emb_port": 8084, "index_bg": true, "wall_s": 77.0, "req_done": 48, "req_per_min": 37.4, "errors": 0, "emb_ms": {"p50": 15.6, "p95": 163.8}, "rerank_ms": {"p50": 209.7, "p95": 418.3}, "llm_ttft_ms": {"p50": 364.7, "p95": 442.7}, "llm_gen_tps_per_stream_med": 24.0, "e2e_ms": {"p50": 6108.1, "p95": 6367.0}, "index_batches_per_s": 139.4, "index_p95_ms": 25.5}
+== C users=4 bge + indexing ==
+{"users": 4, "emb_port": 8085, "index_bg": true, "wall_s": 77.0, "req_done": 20, "req_per_min": 15.6, "errors": 0, "emb_ms": {"p50": 324.2, "p95": 543.7}, "rerank_ms": {"p50": 269.0, "p95": 694.9}, "llm_ttft_ms": {"p50": 753.5, "p95": 1346.4}, "llm_gen_tps_per_stream_med": 10.0, "e2e_ms": {"p50": 14024.5, "p95": 20560.6}, "index_batches_per_s": 9.6, "index_p95_ms": 370.4}
+
+### КРИВАЯ ПО КОНКУРЕНЦИИ (изолированный эмбеддер, sustained 15s/точка, 1 текст/запрос)
+python3: can't open file '/home/beelinknode/coresident_bench/loadtest_v2.py': [Errno 2] No such file or directory
+python3: can't open file '/home/beelinknode/coresident_bench/loadtest_v2.py': [Errno 2] No such file or directory
+python3: can't open file '/home/beelinknode/coresident_bench/loadtest_v2.py': [Errno 2] No such file or directory
+python3: can't open file '/home/beelinknode/coresident_bench/loadtest_v2.py': [Errno 2] No such file or directory
+python3: can't open file '/home/beelinknode/coresident_bench/loadtest_v2.py': [Errno 2] No such file or directory
+python3: can't open file '/home/beelinknode/coresident_bench/loadtest_v2.py': [Errno 2] No such file or directory
+python3: can't open file '/home/beelinknode/coresident_bench/loadtest_v2.py': [Errno 2] No such file or directory
+python3: can't open file '/home/beelinknode/coresident_bench/loadtest_v2.py': [Errno 2] No such file or directory
+python3: can't open file '/home/beelinknode/coresident_bench/loadtest_v2.py': [Errno 2] No such file or directory
+python3: can't open file '/home/beelinknode/coresident_bench/loadtest_v2.py': [Errno 2] No such file or directory
+python3: can't open file '/home/beelinknode/coresident_bench/loadtest_v2.py': [Errno 2] No such file or directory
+python3: can't open file '/home/beelinknode/coresident_bench/loadtest_v2.py': [Errno 2] No such file or directory
+python3: can't open file '/home/beelinknode/coresident_bench/loadtest_v2.py': [Errno 2] No such file or directory
+python3: can't open file '/home/beelinknode/coresident_bench/loadtest_v2.py': [Errno 2] No such file or directory
+
+### КРИВАЯ ПО БАТЧАМ (изолированный эмбеддер, длинные ~350 ток., texts/s)
+strizh-b1 batch=1    thr=   339.1emb/s (512 emb / 1.5s)
+strizh-b2 batch=2    thr=   489.9emb/s (512 emb / 1.0s)
+strizh-b4 batch=4    thr=   593.7emb/s (512 emb / 0.9s)
+strizh-b8 batch=8    thr=   589.1emb/s (512 emb / 0.9s)
+strizh-b16 batch=16   thr=   588.0emb/s (512 emb / 0.9s)
+strizh-b32 batch=32   thr=   580.2emb/s (512 emb / 0.9s)
+strizh-b64 batch=64   thr=   599.5emb/s (512 emb / 0.9s)
+strizh-b128 batch=128  thr=   603.7emb/s (768 emb / 1.3s)
+bge-b1 batch=1    thr=    35.1emb/s (512 emb / 14.6s)
+bge-b2 batch=2    thr=    52.1emb/s (512 emb / 9.8s)
+bge-b4 batch=4    thr=    58.1emb/s (512 emb / 8.8s)
+bge-b8 batch=8    thr=    42.9emb/s (512 emb / 11.9s)
+bge-b16 batch=16   thr=    45.5emb/s (512 emb / 11.2s)
+bge-b32 batch=32   thr=    45.6emb/s (512 emb / 11.2s)
+bge-b64 batch=64   thr=    45.7emb/s (512 emb / 11.2s)
+bge-b128 batch=128  thr=    45.7emb/s (768 emb / 16.8s)
+
+### КРИВАЯ ПО КОНКУРЕНЦИИ (изолированный эмбеддер, sustained 15s/точка, 1 текст/запрос) — повтор
+strizh-conc1 inst=1 conc=1   n=15060 thr= 1004.0emb/s p50=   1.0 p95=   1.2 p99=   1.3ms
+strizh-conc2 inst=1 conc=2   n=28698 thr= 1913.1emb/s p50=   1.0 p95=   1.2 p99=   1.4ms
+strizh-conc4 inst=1 conc=4   n=46897 thr= 3126.3emb/s p50=   1.2 p95=   1.9 p99=   2.1ms
+strizh-conc8 inst=1 conc=8   n=46501 thr= 3099.6emb/s p50=   2.6 p95=   3.7 p99=   4.2ms
+strizh-conc16 inst=1 conc=16  n=64705 thr= 4313.0emb/s p50=   3.6 p95=   5.4 p99=   6.4ms
+strizh-conc32 inst=1 conc=32  n=67504 thr= 4499.0emb/s p50=   6.9 p95=  10.7 p99=  12.7ms
+strizh-conc64 inst=1 conc=64  n=67027 thr= 4465.7emb/s p50=  13.8 p95=  22.7 p99=  27.2ms
+bge-conc1 inst=1 conc=1   n=2196  thr=  146.3emb/s p50=   6.9 p95=   7.7 p99=   8.1ms
+bge-conc2 inst=1 conc=2   n=2449  thr=  163.2emb/s p50=  12.4 p95=  12.9 p99=  13.3ms
+bge-conc4 inst=1 conc=4   n=4185  thr=  278.9emb/s p50=  15.1 p95=  15.7 p99=  16.1ms
+bge-conc8 inst=1 conc=8   n=5089  thr=  338.9emb/s p50=  23.6 p95=  24.6 p99=  25.0ms
+bge-conc16 inst=1 conc=16  n=6738  thr=  448.5emb/s p50=  35.6 p95=  36.9 p99=  37.6ms
+bge-conc32 inst=1 conc=32  n=6667  thr=  442.7emb/s p50=  72.1 p95=  73.7 p99=  74.7ms
+bge-conc64 inst=1 conc=64  n=6681  thr=  441.5emb/s p50= 145.0 p95= 147.4 p99= 148.6ms
