@@ -12,6 +12,7 @@
 | `dev_clean_ru.py <model> [qpref] [dpref]` | recall@10 full vs **отфильтрованная** подвыборка (без прямых совпадений gold с train-позитивами) | MIRACL-ru dev, 758/1000 |
 | [`results-ru-filtered-2026-07-23.txt`](results-ru-filtered-2026-07-23.txt) | сохранённый прогон всех 5 моделей (env, prefix-политика, результаты) | — |
 | [`results-speed-strix-2026-07-26.txt`](results-speed-strix-2026-07-26.txt) | контрольный скоростной прогон strizh vs bge-m3 (env, sha256, флаги, conc16 + sustained 60s) | — |
+| `coresident_bench.py` + [`results-coresident-strix-2026-07-27.txt`](results-coresident-strix-2026-07-27.txt) | co-resident замер: дельта tok/s и TTFT LLM (Qwen3.6-35B) под open-loop QPS и indexing-нагрузкой каждого эмбеддера на одном iGPU | — |
 | `bench_v2.py` | RU + mixed для одной модели | MIRACL-ru + ru_stackoverflow |
 | `mixed_bench.py` | mixed RU+код, 3 модели | ru_stackoverflow (RU-вопрос + EN-код) |
 | `extended_bench.py` | RU + mixed для USER2/mE5 с их префиксами | MIRACL-ru + ru_stackoverflow |
