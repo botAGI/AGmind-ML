@@ -41,15 +41,17 @@ def one_request(i):
     # 1) embed запроса
     post(EMB, "/v1/embeddings", {"input": q}).read()
     t1 = time.perf_counter()
-    # 2) rerank топ-8 кандидатов
-    post(RER, "/v1/rerank", {"query": q, "documents": DOCS, "top_n": 4}).read()
+    # 2) rerank топ-8 кандидатов → берём top-4
+    rr = json.load(post(RER, "/v1/rerank", {"query": q, "documents": DOCS, "top_n": 4}))
+    top_idx = [x["index"] for x in rr["results"][:4]]
     t2 = time.perf_counter()
-    # 3) генерация ответа (stream, TTFT)
-    body = {"prompt": f"Вопрос: {q}\nКраткий ответ:", "n_predict": 128, "temperature": 0,
-            "stream": True, "cache_prompt": False}
+    # 3) генерация ответа ПО ОТРАНЖИРОВАННОМУ КОНТЕКСТУ (stream, TTFT от отправки запроса)
+    ctx = "\n\n".join(f"[Фрагмент {k+1}] {DOCS[i]}" for k, i in enumerate(top_idx))
+    body = {"prompt": f"Контекст:\n{ctx}\n\nВопрос: {q}\nКраткий ответ по контексту:",
+            "n_predict": 128, "temperature": 0, "stream": True, "cache_prompt": False}
     ttft = None; ntok = 0; tps = None
+    t3 = time.perf_counter()          # ДО отправки: очередь и prefill входят в TTFT
     with post(LLM, "/completion", body) as r:
-        t3 = time.perf_counter()
         for line in r:
             if not line.startswith(b"data: "): continue
             if ttft is None: ttft = (time.perf_counter() - t3) * 1000

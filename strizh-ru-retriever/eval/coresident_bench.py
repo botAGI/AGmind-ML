@@ -46,7 +46,10 @@ def emb_call(texts):
         req = urllib.request.Request(f"http://127.0.0.1:{EMB_PORT}/v1/embeddings",
             json.dumps({"input": texts}).encode(), {"Content-Type": "application/json"})
         urllib.request.urlopen(req, timeout=60).read()
-        with emb_lock: emb_stats["lat"].append((time.perf_counter() - t0) * 1000)
+        t1 = time.perf_counter()
+        # (ts_done, latency) — rate считается ТОЛЬКО по измеряемому окну,
+        # иначе прогрев и ramp-up попадают в числитель, а не в знаменатель
+        with emb_lock: emb_stats["lat"].append((t1, (t1 - t0) * 1000))
     except Exception:
         with emb_lock: emb_stats["err"] += 1
 
@@ -105,10 +108,16 @@ def main():
     if MODE != "baseline": time.sleep(3)  # нагрузка выходит на режим до первого промпта
 
     llm_call(PROMPTS[-1])  # warmup, не считаем
+
+    t_win0 = time.perf_counter()                       # начало измеряемого окна
     runs = [llm_call(PROMPTS[i % len(PROMPTS)]) for i in range(N_PROMPTS)]
+    t_win1 = time.perf_counter()                       # конец измеряемого окна
     stop_flag.set(); time.sleep(1)
 
-    lat = sorted(emb_stats["lat"])
+    win = t_win1 - t_win0
+    with emb_lock:
+        in_win = [l for (ts, l) in emb_stats["lat"] if t_win0 <= ts <= t_win1]
+    lat = sorted(in_win)
     p = lambda q: lat[min(len(lat)-1, int(len(lat)*q))] if lat else None
     med = lambda k: statistics.median(r[k] for r in runs if r[k] is not None)
     out = {
@@ -117,8 +126,9 @@ def main():
                 "srv_tps_med": round(med("srv_tps"), 2),
                 "cli_tps_med": round(med("cli_tps"), 2),
                 "runs": [{k: (round(v, 2) if isinstance(v, float) else v) for k, v in r.items()} for r in runs]},
-        "emb": {"achieved_rps": round(len(lat) / max(1e-9, sum(r["wall_s"] for r in runs)), 1) if lat else None,
-                "done": len(lat), "sent": emb_stats["sent"], "errors": emb_stats["err"],
+        "emb": {"achieved_rps": round(len(lat) / max(1e-9, win), 1) if lat else None,
+                "done_in_window": len(lat), "window_s": round(win, 1),
+                "sent_total": emb_stats["sent"], "errors": emb_stats["err"],
                 "p50_ms": round(p(0.5), 1) if lat else None, "p95_ms": round(p(0.95), 1) if lat else None},
     }
     print(json.dumps(out, ensure_ascii=False))
