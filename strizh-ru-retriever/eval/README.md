@@ -15,7 +15,8 @@
 | `coresident_bench.py` + [`results-coresident-strix-2026-07-27.txt`](results-coresident-strix-2026-07-27.txt) | co-resident замер: дельта tok/s и TTFT LLM (Qwen3.6-35B) под open-loop QPS и indexing-нагрузкой каждого эмбеддера на одном iGPU | — |
 | `pipeline_bench.py` + `corpus_ru.json` + [`results-rag-pipeline-strix-2026-07-27.txt`](results-rag-pipeline-strix-2026-07-27.txt) | RAG-конвейер под мультиюзером: embed → векторный поиск (99-чанковый индекс) → rerank → top-4 в prompt → generation; жёсткое окно 90с, сценарий с фоновой индексацией | — |
 | `pipeline_bench.py` + [`results-rag-final-strix-2026-07-27.txt`](results-rag-final-strix-2026-07-27.txt) | **основной прогон RAG-конвейера**: 4 юзера, окно 420с, каждая точка снята дважды с обратным порядком во втором раунде | — |
-| `context_len_check.py` | контроль confound'а: длина извлечённого контекста у strizh vs bge-m3 (TTFT включает prompt processing контекста) | — |
+| `prompt_tokens_check.py` + [`results-prompt-tokens-strix-2026-07-28.txt`](results-prompt-tokens-strix-2026-07-28.txt) | **контроль причины разницы TTFT**: фактические токены промпта (llama-server `timings.prompt_n`) и TTFT одиночного потока для обоих эмбеддеров | — |
+| `context_len_check.py` | ПЕРВЫЙ, НЕГОДНЫЙ контроль того же вопроса: мерил длину контекста в символах. Оставлен как след: символьный прокси перевернул знак эффекта (см. шапку лога выше) | — |
 | [`results-embed-curves-strix-2026-07-27.txt`](results-embed-curves-strix-2026-07-27.txt) | изолированные кривые эмбеддеров: конкуренция 1–64 и размер батча 1–128 (длинные чанки) | — |
 | `pipeline_bench_v1.py` | первая версия RAG-харнесса; ею снят лог на 90с (индексация гоняла первые 4 чанка, латентности с right-censoring). Для новых замеров не использовать | — |
 | `bench_v2.py` | RU + mixed для одной модели | MIRACL-ru + ru_stackoverflow |
