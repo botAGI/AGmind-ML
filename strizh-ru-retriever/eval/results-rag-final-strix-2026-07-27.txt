@@ -1,0 +1,58 @@
+# Full RAG pipeline under multi-user load — one AMD Strix Halo iGPU (long run, repeated, order-alternated)
+# date: 2026-07-27T15:49:19Z
+# host: AMD RYZEN AI MAX+ 395 w/ Radeon 8060S; kernel 7.0.0-28-generic; RAM 124G unified
+# ТРАНЗАКЦИЯ: embed(запрос) → косинусный поиск по индексу (top-8) → rerank → top-4 в prompt → generation 128 ток.
+#   индекс: 99 чанков корпуса AGmind, строится тем же эмбеддером на старте каждой точки
+#   поиск: линейный cosine scan в Python по 99 векторам (НЕ тест масштабирования векторной БД)
+# ОКНО: жёсткий дедлайн 420с. throughput = завершённые ВНУТРИ окна; латентности = все стартовавшие до дедлайна и завершившиеся (без right-censoring)
+# ФОНОВАЯ ИНДЕКСАЦИЯ: 3 closed-loop воркера, циклический проход ВСЕГО корпуса батчами по 4 чанка (index_corpus_passes = сколько раз корпус пройден)
+# ПОВТОРЫ: каждая точка снята дважды, во втором раунде порядок обратный (контроль порядка и прогрева)
+# серверы: LLM 8086 Qwen3.6-35B-A3B Q4_K_M (35B всего, ~3B активных на токен) -c 16384 --parallel 4 | embed 8084 strizh | embed 8085 bge-m3 | rerank 8087 bge-reranker-v2-m3
+#   на iGPU одновременно резидентны все четыре сервера; нагрузка в каждой точке идёт только в один embedding-порт
+# sha256(16): qwen=b46fedd33e0bfb0c strizh=1f40fb9e762d3b3e bge=6fae7a1e5c8039c7
+
+# СВОДКА (медиана двух повторов; в скобках оба значения R1/R2)
+# --------------------------------------------------------------------------------------------------------------
+# профиль                                 тx/мин      e2e p50, с    TTFT p50, с   ток/с поток  заверш. в окне
+# STRIZH, без индексации             17.7 (17.7/17.7)     13.4 (13.3/13.5)     7.9 (7.9/7.9)   31.5 (31.8/31.1)     124 (124/124)
+# bge-m3, без индексации             19.7 (19.4/20.0)     12.1 (12.2/12.0)     6.9 (6.8/6.9)   33.5 (33.6/33.4)     138 (136/140)
+# STRIZH + фоновая индексация        14.0 (13.7/14.3)     16.6 (16.7/16.5)     9.5 (9.6/9.4)   22.8 (21.8/23.7)      98 (96/100)
+# bge-m3 + фоновая индексация         6.0 (5.7/6.3)     37.0 (39.1/34.8)    13.7 (13.8/13.7)    6.5 (5.6/7.4)      42 (40/44)
+#
+# ИНДЕКСАЦИЯ (только точки с фоновой индексацией)
+# профиль                                     батчей/с     p95 батча, мс   полных проходов корпуса
+# STRIZH + фоновая индексация          46.0 (46.2/45.7)       98 (98/99)            772 (776/768)
+# bge-m3 + фоновая индексация           4.9 (5.0/4.8)      950 (945/956)             83 (85/81)
+#
+# ПРОИЗВОДНЫЕ
+# цена фоновой индексации для юзеров: STRIZH 17.7 -> 14.0 тx/мин (-21%), bge-m3 19.7 -> 6.0 (-70%)
+# под индексацией STRIZH удерживает в 2.3x больше пользовательских транзакций
+# и проходит корпус в 9.3x чаще
+#
+# ВАЖНО про точку БЕЗ индексации: bge-m3 там выглядит чуть быстрее по e2e/TTFT. Это НЕ про скорость
+#   эмбеддера (3.4 мс против 30 мс — 0.2% транзакции), а про то, что эмбеддеры извлекают РАЗНЫЕ чанки,
+#   а TTFT включает prompt processing извлечённого контекста. Контрольный замер длины контекста
+#   (context_len_check.py, те же серверы): STRIZH среднее 5143 симв. (медиана 5222), bge-m3 4797 (5115) —
+#   контекст STRIZH на 7.2% длиннее, что и даёт систематически более высокий TTFT в обоих раундах.
+#   Выбор эмбеддера начинает решать только когда он конкурирует за GPU (точки с индексацией).
+
+### СЫРОЙ ЛОГ ПРОГОНА
+### РАУНД 1 (прямой порядок)
+== R1 4 юзера, strizh, без индексации ==
+{"users": 4, "emb_port": 8084, "index_bg": false, "window_s": 420.0, "corpus_chunks": 99, "started": 128, "completed_in_window": 124, "completed_after_window": 4, "errors": 0, "tx_per_min": 17.7, "emb_ms": {"p50": 3.3, "p95": 26.9}, "vector_search_ms": {"p50": 1.4, "p95": 1.8}, "rerank_ms": {"p50": 675.6, "p95": 1859.1}, "llm_ttft_ms": {"p50": 7873.1, "p95": 8717.6}, "llm_gen_tps_per_stream_med": 31.8, "e2e_ms": {"p50": 13264.4, "p95": 13868.1}, "index_batches_per_s_in_window": null, "index_p95_ms": null, "index_corpus_passes": null, "latency_n": 128}
+== R1 4 юзера, bge, без индексации ==
+{"users": 4, "emb_port": 8085, "index_bg": false, "window_s": 420.0, "corpus_chunks": 99, "started": 140, "completed_in_window": 136, "completed_after_window": 4, "errors": 0, "tx_per_min": 19.4, "emb_ms": {"p50": 28.2, "p95": 101.8}, "vector_search_ms": {"p50": 3.5, "p95": 3.9}, "rerank_ms": {"p50": 708.0, "p95": 1825.2}, "llm_ttft_ms": {"p50": 6846.8, "p95": 7854.6}, "llm_gen_tps_per_stream_med": 33.6, "e2e_ms": {"p50": 12167.2, "p95": 12752.4}, "index_batches_per_s_in_window": null, "index_p95_ms": null, "index_corpus_passes": null, "latency_n": 140}
+== R1 4 юзера, strizh + индексация ==
+{"users": 4, "emb_port": 8084, "index_bg": true, "window_s": 420.0, "corpus_chunks": 99, "started": 100, "completed_in_window": 96, "completed_after_window": 4, "errors": 0, "tx_per_min": 13.7, "emb_ms": {"p50": 55.0, "p95": 95.0}, "vector_search_ms": {"p50": 1.3, "p95": 1.8}, "rerank_ms": {"p50": 1197.2, "p95": 2394.6}, "llm_ttft_ms": {"p50": 9567.5, "p95": 10607.2}, "llm_gen_tps_per_stream_med": 21.8, "e2e_ms": {"p50": 16744.3, "p95": 17692.9}, "index_batches_per_s_in_window": 46.2, "index_p95_ms": 97.8, "index_corpus_passes": 775.64, "latency_n": 100}
+== R1 4 юзера, bge + индексация ==
+{"users": 4, "emb_port": 8085, "index_bg": true, "window_s": 420.0, "corpus_chunks": 99, "started": 44, "completed_in_window": 40, "completed_after_window": 4, "errors": 0, "tx_per_min": 5.7, "emb_ms": {"p50": 524.1, "p95": 964.9}, "vector_search_ms": {"p50": 3.4, "p95": 3.9}, "rerank_ms": {"p50": 1833.3, "p95": 3679.0}, "llm_ttft_ms": {"p50": 13791.2, "p95": 17064.4}, "llm_gen_tps_per_stream_med": 5.6, "e2e_ms": {"p50": 39106.8, "p95": 51932.3}, "index_batches_per_s_in_window": 5.0, "index_p95_ms": 944.9, "index_corpus_passes": 84.64, "latency_n": 44}
+
+### РАУНД 2 (обратный порядок)
+== R2 4 юзера, bge + индексация ==
+{"users": 4, "emb_port": 8085, "index_bg": true, "window_s": 420.0, "corpus_chunks": 99, "started": 48, "completed_in_window": 44, "completed_after_window": 4, "errors": 0, "tx_per_min": 6.3, "emb_ms": {"p50": 481.2, "p95": 856.0}, "vector_search_ms": {"p50": 3.5, "p95": 4.1}, "rerank_ms": {"p50": 1677.7, "p95": 3792.9}, "llm_ttft_ms": {"p50": 13699.4, "p95": 16506.0}, "llm_gen_tps_per_stream_med": 7.4, "e2e_ms": {"p50": 34807.9, "p95": 50573.2}, "index_batches_per_s_in_window": 4.8, "index_p95_ms": 956.1, "index_corpus_passes": 81.04, "latency_n": 48}
+== R2 4 юзера, strizh + индексация ==
+{"users": 4, "emb_port": 8084, "index_bg": true, "window_s": 420.0, "corpus_chunks": 99, "started": 104, "completed_in_window": 100, "completed_after_window": 4, "errors": 0, "tx_per_min": 14.3, "emb_ms": {"p50": 54.3, "p95": 98.5}, "vector_search_ms": {"p50": 1.1, "p95": 1.8}, "rerank_ms": {"p50": 1004.6, "p95": 2393.2}, "llm_ttft_ms": {"p50": 9390.4, "p95": 10939.4}, "llm_gen_tps_per_stream_med": 23.7, "e2e_ms": {"p50": 16475.1, "p95": 17688.6}, "index_batches_per_s_in_window": 45.7, "index_p95_ms": 98.7, "index_corpus_passes": 768.2, "latency_n": 104}
+== R2 4 юзера, bge, без индексации ==
+{"users": 4, "emb_port": 8085, "index_bg": false, "window_s": 420.0, "corpus_chunks": 99, "started": 144, "completed_in_window": 140, "completed_after_window": 4, "errors": 0, "tx_per_min": 20.0, "emb_ms": {"p50": 31.9, "p95": 130.3}, "vector_search_ms": {"p50": 3.6, "p95": 4.0}, "rerank_ms": {"p50": 647.2, "p95": 1714.1}, "llm_ttft_ms": {"p50": 6866.7, "p95": 7759.4}, "llm_gen_tps_per_stream_med": 33.4, "e2e_ms": {"p50": 12027.5, "p95": 12805.3}, "index_batches_per_s_in_window": null, "index_p95_ms": null, "index_corpus_passes": null, "latency_n": 144}
+== R2 4 юзера, strizh, без индексации ==
+{"users": 4, "emb_port": 8084, "index_bg": false, "window_s": 420.0, "corpus_chunks": 99, "started": 128, "completed_in_window": 124, "completed_after_window": 4, "errors": 0, "tx_per_min": 17.7, "emb_ms": {"p50": 3.5, "p95": 24.5}, "vector_search_ms": {"p50": 1.4, "p95": 1.7}, "rerank_ms": {"p50": 619.9, "p95": 1713.4}, "llm_ttft_ms": {"p50": 7920.1, "p95": 9049.6}, "llm_gen_tps_per_stream_med": 31.1, "e2e_ms": {"p50": 13485.8, "p95": 14049.8}, "index_batches_per_s_in_window": null, "index_p95_ms": null, "index_corpus_passes": null, "latency_n": 128}
