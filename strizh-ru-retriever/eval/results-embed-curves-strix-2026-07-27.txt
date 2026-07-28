@@ -1,0 +1,39 @@
+# Isolated embedder curves — AMD Strix Halo, llama.cpp Vulkan
+# date: 2026-07-27; извлечено из прогона results-prod-pattern (кривые снимались изолированно и багами pipeline-харнесса не затронуты)
+# конкуренция: sustained 15с на точку, 1 короткий RU-текст на запрос, клиент eval/loadtest_v2.py
+# батчи: длинные чанки ~350 токенов, B текстов в одном /v1/embeddings, клиент eval/batch_thr.py
+# серверы: strizh Q8_0 (--pooling mean), bge-m3 Q8_0 (--pooling cls), оба -ngl 999 -np 8
+
+## Кривая по конкуренции (1→64)
+strizh-conc1 inst=1 conc=1   n=15060 thr= 1004.0emb/s p50=   1.0 p95=   1.2 p99=   1.3ms
+strizh-conc2 inst=1 conc=2   n=28698 thr= 1913.1emb/s p50=   1.0 p95=   1.2 p99=   1.4ms
+strizh-conc4 inst=1 conc=4   n=46897 thr= 3126.3emb/s p50=   1.2 p95=   1.9 p99=   2.1ms
+strizh-conc8 inst=1 conc=8   n=46501 thr= 3099.6emb/s p50=   2.6 p95=   3.7 p99=   4.2ms
+strizh-conc16 inst=1 conc=16  n=64705 thr= 4313.0emb/s p50=   3.6 p95=   5.4 p99=   6.4ms
+strizh-conc32 inst=1 conc=32  n=67504 thr= 4499.0emb/s p50=   6.9 p95=  10.7 p99=  12.7ms
+strizh-conc64 inst=1 conc=64  n=67027 thr= 4465.7emb/s p50=  13.8 p95=  22.7 p99=  27.2ms
+bge-conc1 inst=1 conc=1   n=2196  thr=  146.3emb/s p50=   6.9 p95=   7.7 p99=   8.1ms
+bge-conc2 inst=1 conc=2   n=2449  thr=  163.2emb/s p50=  12.4 p95=  12.9 p99=  13.3ms
+bge-conc4 inst=1 conc=4   n=4185  thr=  278.9emb/s p50=  15.1 p95=  15.7 p99=  16.1ms
+bge-conc8 inst=1 conc=8   n=5089  thr=  338.9emb/s p50=  23.6 p95=  24.6 p99=  25.0ms
+bge-conc16 inst=1 conc=16  n=6738  thr=  448.5emb/s p50=  35.6 p95=  36.9 p99=  37.6ms
+bge-conc32 inst=1 conc=32  n=6667  thr=  442.7emb/s p50=  72.1 p95=  73.7 p99=  74.7ms
+bge-conc64 inst=1 conc=64  n=6681  thr=  441.5emb/s p50= 145.0 p95= 147.4 p99= 148.6ms
+
+## Кривая по размеру батча (1→128, длинные чанки)
+strizh-b1 batch=1    thr=   339.1emb/s (512 emb / 1.5s)
+strizh-b2 batch=2    thr=   489.9emb/s (512 emb / 1.0s)
+strizh-b4 batch=4    thr=   593.7emb/s (512 emb / 0.9s)
+strizh-b8 batch=8    thr=   589.1emb/s (512 emb / 0.9s)
+strizh-b16 batch=16   thr=   588.0emb/s (512 emb / 0.9s)
+strizh-b32 batch=32   thr=   580.2emb/s (512 emb / 0.9s)
+strizh-b64 batch=64   thr=   599.5emb/s (512 emb / 0.9s)
+strizh-b128 batch=128  thr=   603.7emb/s (768 emb / 1.3s)
+bge-b1 batch=1    thr=    35.1emb/s (512 emb / 14.6s)
+bge-b2 batch=2    thr=    52.1emb/s (512 emb / 9.8s)
+bge-b4 batch=4    thr=    58.1emb/s (512 emb / 8.8s)
+bge-b8 batch=8    thr=    42.9emb/s (512 emb / 11.9s)
+bge-b16 batch=16   thr=    45.5emb/s (512 emb / 11.2s)
+bge-b32 batch=32   thr=    45.6emb/s (512 emb / 11.2s)
+bge-b64 batch=64   thr=    45.7emb/s (512 emb / 11.2s)
+bge-b128 batch=128  thr=    45.7emb/s (768 emb / 16.8s)
