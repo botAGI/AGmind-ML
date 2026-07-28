@@ -3,7 +3,7 @@
 Сохраняет ST-обёртку каждого варианта. Лучший старт → база дистилляции.
 Ключевое: сохранять layer_types (local/global rope theta) каждого выбранного слоя — иначе rope mismatch."""
 import os, json, numpy as np, torch, shutil
-os.environ.setdefault("HF_HOME","/home/gamer/ru-splitter/hf")
+os.environ.setdefault("HF_HOME", os.path.expanduser("~/.cache/huggingface"))
 from transformers import AutoModel, AutoConfig, AutoTokenizer
 from sentence_transformers import SentenceTransformer, models
 

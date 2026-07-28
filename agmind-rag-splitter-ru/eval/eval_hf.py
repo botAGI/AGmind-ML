@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Eval RU-splitter checkpoint on holdout: JSON-valid %, boundary-F1 (exact + windowed ±1), exact-set-match.
-Env: MODEL (path: merged dir OR checkpoint dir with adapter), HOLD, N. Run on winbox 5090."""
+Env: MODEL (path: merged dir OR checkpoint dir with adapter), HOLD, N. Run on a CUDA box."""
 import os, sys, json, re
-os.environ.setdefault("HF_HOME","/home/gamer/ru-splitter/hf")
+os.environ.setdefault("HF_HOME", os.path.expanduser("~/.cache/huggingface"))
 os.environ.setdefault("HF_HUB_ENABLE_HF_TRANSFER","0")
 import torch
 from unsloth import FastLanguageModel

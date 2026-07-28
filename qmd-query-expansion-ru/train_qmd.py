@@ -6,7 +6,7 @@ r16/alpha32 all-proj, 5 эпох, lr 2e-4 cosine, eff.batch 16, max_len 512).
 assistant=построчно 'type: content', пустой think-блок вырезается.
 Env: DATA, HOLD, OUTDIR, EPOCHS. Запуск на 5090/WSL (ulimit -n 1048576, HF_HOME gamer-owned)."""
 import os, sys, glob
-os.environ.setdefault("HF_HOME","/home/gamer/ru-splitter/hf")
+os.environ.setdefault("HF_HOME", os.path.expanduser("~/.cache/huggingface"))
 os.environ.setdefault("HF_HUB_ENABLE_HF_TRANSFER","0")
 import torch, json
 from unsloth import FastLanguageModel

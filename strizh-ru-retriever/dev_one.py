@@ -1,5 +1,5 @@
 import os, json, sys, numpy as np, torch
-os.environ.setdefault("HF_HOME","/home/gamer/ru-splitter/hf")
+os.environ.setdefault("HF_HOME", os.path.expanduser("~/.cache/huggingface"))
 from sentence_transformers import SentenceTransformer, models
 H=lambda p: os.path.expanduser("~/strizh/"+p)
 qrels={}

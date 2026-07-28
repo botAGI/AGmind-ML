@@ -1,5 +1,6 @@
 import os
-p="/home/gamer/ru-splitter/llama.cpp/conversion/base.py"
+p = os.environ.get("LLAMA_CPP_CONVERSION_BASE",
+                   os.path.expanduser("~/llama.cpp/convert_hf_to_gguf_update.py"))
 H="e9b7dbd66e0308c6e89983d5b6e1ca047106d862879a0fd33a12c8491b91ec5c"
 s=open(p).read()
 anchor='        if chkhsh == "b6e8e1518dc4305be2fe39c313ed643381c4da5db34a98f6a04c093f8afbe99b":'

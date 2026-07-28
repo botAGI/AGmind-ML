@@ -1,5 +1,5 @@
 import os, json, re, random
-os.environ.setdefault("HF_HOME","/home/gamer/ru-splitter/hf")
+os.environ.setdefault("HF_HOME", os.path.expanduser("~/.cache/huggingface"))
 os.environ["HF_HUB_DISABLE_XET"]="1"
 from datasets import load_dataset
 H=lambda p: os.path.expanduser("~/strizh/"+p)

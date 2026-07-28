@@ -1,6 +1,6 @@
 """Бенч qmd-ru vs сток на holdout 450: формат / русскость / EN-галлюцинации / reward. Механика, без судей."""
 import os, json, re, torch
-os.environ.setdefault("HF_HOME","/home/gamer/ru-splitter/hf"); os.environ["HF_HUB_DISABLE_XET"]="1"
+os.environ.setdefault("HF_HOME", os.path.expanduser("~/.cache/huggingface")); os.environ["HF_HUB_DISABLE_XET"]="1"
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 HOLD=[json.loads(l) for l in open("qmd_ru_holdout_full.jsonl")]

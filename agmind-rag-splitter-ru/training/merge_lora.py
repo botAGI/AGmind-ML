@@ -2,7 +2,7 @@
 """План Б: merge LoRA -> merged bf16 чистым transformers+peft (без unsloth), на GPU.
 Usage: merge_lora.py <lora_or_checkpoint_dir> <out_dir>"""
 import os, sys, glob
-os.environ.setdefault("HF_HOME","/home/gamer/ru-splitter/hf")
+os.environ.setdefault("HF_HOME", os.path.expanduser("~/.cache/huggingface"))
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from peft import PeftModel

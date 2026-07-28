@@ -1,7 +1,8 @@
 import json, re, sys, urllib.request
+import os
 from concurrent.futures import ThreadPoolExecutor
 URL="http://192.168.1.73:8085/completion"
-HOLD="/home/beelinknode/ru-splitter-data/train_v1_holdout.jsonl"
+HOLD = os.environ.get("HOLD", "train_v1_holdout.jsonl")  # путь к holdout-выборке
 N=int(sys.argv[1]) if len(sys.argv)>1 else 100
 rows=[json.loads(l) for l in open(HOLD)][:N]
 def gen(prompt):

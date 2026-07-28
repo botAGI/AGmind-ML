@@ -2,7 +2,7 @@
 """iter-2: bge-m3 hard-negatives на train_v2 (двуязычный учитель → cross-lingual негативы).
 Пул = уникальные позитивы; top-50 по bge-m3, негативы ранги 4-40 (скип top-3 и gold), 6/q."""
 import os, json, numpy as np, torch, random
-os.environ.setdefault("HF_HOME","/home/gamer/ru-splitter/hf"); os.environ["HF_HUB_DISABLE_XET"]="1"
+os.environ.setdefault("HF_HOME", os.path.expanduser("~/.cache/huggingface")); os.environ["HF_HUB_DISABLE_XET"]="1"
 from sentence_transformers import SentenceTransformer
 H=lambda p: os.path.expanduser("~/strizh/"+p)
 random.seed(42)

@@ -5,7 +5,7 @@ MNRL на FRIDA-hard-negatives (s6_triplets, наш выигравший рец�
 Init = ws_late_bb (backbone 4L), одна ModernBERT-загрузка → без мутации config.
 dev-qrels СВЯЩЕННЫ — не в трейне."""
 import os, json, random, glob
-os.environ.setdefault("HF_HOME","/home/gamer/ru-splitter/hf")
+os.environ.setdefault("HF_HOME", os.path.expanduser("~/.cache/huggingface"))
 from datasets import Dataset
 from sentence_transformers import SentenceTransformer, models, SentenceTransformerTrainer, SentenceTransformerTrainingArguments
 from sentence_transformers.losses import MultipleNegativesRankingLoss

@@ -4,7 +4,7 @@ MNRL in-batch negatives (cross-lingual negatives естественны — ра
 Init = v1 (сильный старт: RU 0.71, EN 0.30, mixed 0.52). Цель: поднять EN/mixed, держать RU.
 Первая итерация — простой MNRL; bge-m3 similarity-KL + RU-anchor = итерация 2 если RU просядет."""
 import os, json, random, glob
-os.environ.setdefault("HF_HOME","/home/gamer/ru-splitter/hf")
+os.environ.setdefault("HF_HOME", os.path.expanduser("~/.cache/huggingface"))
 from datasets import Dataset
 from sentence_transformers import SentenceTransformer, SentenceTransformerTrainer, SentenceTransformerTrainingArguments
 from sentence_transformers.losses import MultipleNegativesRankingLoss

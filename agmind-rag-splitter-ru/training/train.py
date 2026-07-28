@@ -4,7 +4,7 @@ response-only loss (output=boundary JSON is tiny vs input => mask instruction/in
 Env: DATA, HOLD, OUTDIR, SMOKE_STEPS (0=full epochs), EPOCHS, MAXLEN.
 Run on RTX 5090 / WSL2. HF_HOME pinned to gamer-owned cache."""
 import os, sys, glob
-os.environ.setdefault("HF_HOME","/home/gamer/ru-splitter/hf")
+os.environ.setdefault("HF_HOME", os.path.expanduser("~/.cache/huggingface"))
 os.environ.setdefault("HF_HUB_ENABLE_HF_TRANSFER","0")
 import torch
 from unsloth import FastLanguageModel

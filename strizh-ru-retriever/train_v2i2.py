@@ -2,7 +2,7 @@
 """v2 iter-2: MNRL с bge-m3 hard-negatives поверх v2-iter1. Cross-lingual негативы (bge-m3
 знает оба языка). Тот приём, что вытянул v1 в чемпионы (FRIDA-негативы), но двуязычный."""
 import os, json, random, glob
-os.environ.setdefault("HF_HOME","/home/gamer/ru-splitter/hf")
+os.environ.setdefault("HF_HOME", os.path.expanduser("~/.cache/huggingface"))
 from datasets import Dataset
 from sentence_transformers import SentenceTransformer, SentenceTransformerTrainer, SentenceTransformerTrainingArguments
 from sentence_transformers.losses import MultipleNegativesRankingLoss
