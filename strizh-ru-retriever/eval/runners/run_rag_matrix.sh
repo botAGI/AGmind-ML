@@ -16,11 +16,11 @@ echo "#   embed  8085: bge-m3 Q8_0, b9049, --pooling cls  -c 8192  -b 8192 -ub 8
 echo "#   rerank 8087: bge-reranker-v2-m3 Q8_0, b9049, --rerank -c 8192 -b 8192 -ub 8192 --parallel 4"
 echo "# sha256(16): qwen=$(sha256sum /var/lib/agmind/models/Qwen3.6-35B-A3B-Q4_K_M.gguf|cut -c1-16) strizh=$(sha256sum /var/lib/agmind/models/strizh-ru-retriever.Q8_0.gguf|cut -c1-16) bge=$(sha256sum /var/lib/agmind/models/bge-m3-Q8_0.gguf|cut -c1-16) rerank=$(sha256sum /var/lib/agmind/models/bge-reranker-v2-m3-Q8_0.gguf|cut -c1-16)"
 echo "# фоновая индексация: 3 воркера closed-loop, батчи по 4 чанка на тот же embedding-порт"
-echo "# скрипт: eval/pipeline_bench.py"
+echo "# скрипт: eval/pipeline_bench_v1.py (текущий pipeline_bench.py его заменил)"
 echo ""
-for U in 1 2 4 8; do echo "== A users=$U strizh =="; python3 pipeline_bench.py $U 8084 8087 8086 90 corpus_ru.json; done
-for U in 1 2 4 8; do echo "== B users=$U bge =="; python3 pipeline_bench.py $U 8085 8087 8086 90 corpus_ru.json; done
-echo "== C users=4 strizh + indexing =="; python3 pipeline_bench.py 4 8084 8087 8086 90 corpus_ru.json --index-port 8084
-echo "== C users=4 bge + indexing ==";    python3 pipeline_bench.py 4 8085 8087 8086 90 corpus_ru.json --index-port 8085
+for U in 1 2 4 8; do echo "== A users=$U strizh =="; python3 pipeline_bench_v1.py $U 8084 8087 8086 90 corpus_ru.json; done
+for U in 1 2 4 8; do echo "== B users=$U bge =="; python3 pipeline_bench_v1.py $U 8085 8087 8086 90 corpus_ru.json; done
+echo "== C users=4 strizh + indexing =="; python3 pipeline_bench_v1.py 4 8084 8087 8086 90 corpus_ru.json --index-port 8084
+echo "== C users=4 bge + indexing ==";    python3 pipeline_bench_v1.py 4 8085 8087 8086 90 corpus_ru.json --index-port 8085
 } 2>&1 | tee rag_matrix.log
 echo DONE
