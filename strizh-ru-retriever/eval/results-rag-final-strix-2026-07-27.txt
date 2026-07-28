@@ -1,4 +1,6 @@
 # Full RAG pipeline under multi-user load — one AMD Strix Halo iGPU (long run, repeated, order-alternated)
+# ХАРНЕСС: eval/pipeline_bench.py (sha256:16 = 5575d1e5a12191a1), оркестратор eval/runners/run_final.sh
+#   корпус eval/corpus_ru.json (sha256:16 = edcf310baaa9a5f2)
 # date: 2026-07-27T15:49:19Z
 # host: AMD RYZEN AI MAX+ 395 w/ Radeon 8060S; kernel 7.0.0-28-generic; RAM 124G unified
 # ТРАНЗАКЦИЯ: embed(запрос) → косинусный поиск по индексу (top-8) → rerank → top-4 в prompt → generation 128 ток.

@@ -1,19 +1,12 @@
 #!/usr/bin/env python3
-"""Прод-паттерн RAG под мультиюзером на одном iGPU.
+"""ВЕРСИЯ 1 харнесса RAG-конвейера. Ею снят results-rag-pipeline-strix-2026-07-27.txt
+(окно 90с, свип 1-8 юзеров). Оставлена ради воспроизводимости ТОГО лога.
 
-Полная цепочка на КАЖДУЮ транзакцию:
-  embed(запрос) → косинусный поиск по векторному индексу (top-8)
-  → rerank(запрос, top-8) → top-4 в prompt → generation 128 токенов (stream, TTFT)
-
-Индекс строится ОДИН РАЗ на старте тем же эмбеддером, что и запросы, из чанков
-переданного корпуса. Опционально: --index-port P — фоновая переиндексация
-(3 воркера closed-loop, циклический проход всего корпуса батчами по 4 чанка) на тот же embedding-порт.
-
-Окно измерения: жёсткий дедлайн. После дедлайна новые транзакции не стартуют,
-уже запущенные дожидаются (join), в throughput идут ТОЛЬКО завершённые внутри окна.
-
-args: users emb_port rerank_port llm_port duration_s corpus.json [--index-port P]
-Вывод: одна JSON-строка.
+Отличия от текущего pipeline_bench.py:
+  - фоновая индексация гоняет одни и те же первые 4 чанка (CHUNKS[:4]), не весь корпус;
+  - латентности собираются только по завершившимся ВНУТРИ окна (right-censoring);
+  - нет полей index_corpus_passes и latency_n.
+Для новых замеров используйте pipeline_bench.py.
 """
 import json, sys, time, threading, statistics, math
 import urllib.request
@@ -29,8 +22,7 @@ QUERIES = ["как настроить pooling у эмбеддера в llama-ser
            "как устроен offline-режим установки", "какие сервисы входят в стек"]
 
 CHUNKS = json.load(open(CORPUS, encoding="utf-8"))
-IDX_BATCHES = [CHUNKS[i:i+4] for i in range(0, len(CHUNKS), 4)]   # весь корпус, батчами по 4
-IDX_CURSOR = [0]
+IDX_TEXTS = CHUNKS[:4]
 
 stop = threading.Event()
 deadline = None
@@ -88,14 +80,16 @@ def one_transaction(i):
             except Exception: continue
             if d.get("stop"): tps = d.get("timings", {}).get("predicted_per_second")
     t5 = time.perf_counter()
+    inside = t5 <= deadline
     with L:
-        if t5 <= deadline: S["in_window"] += 1      # throughput: только завершённые в окне
-        else:              S["after_window"] += 1
-        # латентность: ВСЕ стартовавшие до дедлайна и завершившиеся (без right-censoring)
-        S["emb"].append((t1-t0)*1000); S["search"].append((t2-t1)*1000)
-        S["rer"].append((t3-t2)*1000); S["e2e"].append((t5-t0)*1000)
-        if ttft is not None: S["ttft"].append(ttft)
-        if tps: S["gen_tps"].append(tps)
+        if inside:
+            S["in_window"] += 1
+            S["emb"].append((t1-t0)*1000); S["search"].append((t2-t1)*1000)
+            S["rer"].append((t3-t2)*1000); S["e2e"].append((t5-t0)*1000)
+            if ttft is not None: S["ttft"].append(ttft)
+            if tps: S["gen_tps"].append(tps)
+        else:
+            S["after_window"] += 1
 
 def user_loop(uid):
     i = uid
@@ -109,11 +103,9 @@ def user_loop(uid):
 
 def index_loop():
     while time.perf_counter() < deadline:
-        with L:
-            batch = IDX_BATCHES[IDX_CURSOR[0] % len(IDX_BATCHES)]; IDX_CURSOR[0] += 1
         t0 = time.perf_counter()
         try:
-            post(IDX_PORT, "/v1/embeddings", {"input": batch}).read()
+            post(IDX_PORT, "/v1/embeddings", {"input": IDX_TEXTS}).read()
             t1 = time.perf_counter()
             with L:
                 if t1 <= deadline:
@@ -147,8 +139,6 @@ def main():
         "e2e_ms": {"p50": pct(S["e2e"], .5), "p95": pct(S["e2e"], .95)},
         "index_batches_per_s_in_window": round(S["idx_in_window"] / DUR, 1) if IDX_PORT else None,
         "index_p95_ms": pct(S["idx_lat"], .95) if IDX_PORT else None,
-        "index_corpus_passes": round(S["idx_in_window"] / len(IDX_BATCHES), 2) if IDX_PORT else None,
-        "latency_n": len(S["e2e"]),
     }
     print(json.dumps(out, ensure_ascii=False))
 

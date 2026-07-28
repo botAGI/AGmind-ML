@@ -1,4 +1,5 @@
 # Speed benchmark — STRIZH vs bge-m3 on AMD Strix Halo (control re-run)
+# ХАРНЕСС: eval/loadtest_v2.py, входные данные eval/texts_short_ru.json (sha256:16 = 0d0981da40e1df02)
 # date: 2026-07-26T11:52:36Z
 # host: AMD RYZEN AI MAX+ 395 w/ Radeon 8060S; kernel 7.0.0-28-generic
 # server image: ghcr.io/ggml-org/llama.cpp:server-vulkan-b9049 (build b9049-2496f9c14), backend Vulkan

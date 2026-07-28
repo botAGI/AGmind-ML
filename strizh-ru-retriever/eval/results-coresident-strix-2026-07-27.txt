@@ -1,4 +1,5 @@
 # Co-resident benchmark — Qwen3.6-35B-A3B (Q4_K_M) + embedders on one AMD Strix Halo iGPU
+# ХАРНЕСС: eval/coresident_bench.py (sha256:16 = dbe2474d1baab716), оркестратор eval/runners/rerun_fixed.sh
 # date: 2026-07-27 (повторный прогон с исправленными харнессами)
 # host: AMD RYZEN AI MAX+ 395 w/ Radeon 8060S; kernel 7.0.0-28-generic; RAM 124G unified
 # images: LLM = ghcr.io/ggml-org/llama.cpp:server-vulkan (latest, imageId 2327a745588d; b9049 не грузит SSM-тензоры Qwen3.6); embedders = server-vulkan-b9049

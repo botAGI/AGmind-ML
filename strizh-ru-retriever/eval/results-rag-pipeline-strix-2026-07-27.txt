@@ -1,4 +1,8 @@
 # Production RAG pipeline under multi-user load — one AMD Strix Halo iGPU
+# ХАРНЕСС: eval/pipeline_bench_v1.py (sha256:16 = f69bc928d06ee7cf), оркестратор eval/runners/run_rag_matrix.sh
+#   ВАЖНО: этим логом снята ПЕРВАЯ версия харнесса. Текущий eval/pipeline_bench.py её заменил
+#   (циклический проход всего корпуса при индексации, латентности без right-censoring,
+#   поля index_corpus_passes и latency_n) и этот лог НЕ воспроизводит.
 # date: 2026-07-27T15:09:13Z
 # host: AMD RYZEN AI MAX+ 395 w/ Radeon 8060S; kernel 7.0.0-28-generic; RAM 124G unified
 # ЦЕПОЧКА НА ТРАНЗАКЦИЮ: embed(запрос) → косинусный поиск по индексу (top-8) → rerank → top-4 в prompt → generation 128 ток.

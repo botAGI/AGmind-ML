@@ -1,5 +1,10 @@
 # Isolated embedder curves — AMD Strix Halo, llama.cpp Vulkan
-# date: 2026-07-27; извлечено из прогона results-prod-pattern (кривые снимались изолированно и багами pipeline-харнесса не затронуты)
+# date: 2026-07-27; кривые снимались ИЗОЛИРОВАННО (только эмбеддер под нагрузкой), багами
+#   RAG-харнесса не затронуты. Исходный сводный лог того прогона (results-prod-pattern) удалён
+#   из репозитория как устаревший по RAG-части; кривые перенесены сюда без изменения чисел.
+# ХАРНЕСС: eval/loadtest_v2.py и eval/batch_thr.py, оркестратор eval/runners/run_prod_matrix.sh
+#   входные данные: eval/texts_short_ru.json (sha256:16 = 0d0981da40e1df02),
+#   eval/texts_long_ru.json (sha256:16 = 015fc8c6d348d80e)
 # конкуренция: sustained 15с на точку, 1 короткий RU-текст на запрос, клиент eval/loadtest_v2.py
 # батчи: длинные чанки ~350 токенов, B текстов в одном /v1/embeddings, клиент eval/batch_thr.py
 # серверы: strizh Q8_0 (--pooling mean), bge-m3 Q8_0 (--pooling cls), оба -ngl 999 -np 8
