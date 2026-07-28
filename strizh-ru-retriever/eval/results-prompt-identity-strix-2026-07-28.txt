@@ -1,0 +1,31 @@
+# Идентичность промптов: SHA-256 итогового prompt по каждому запросу
+# ХАРНЕСС: eval/prompt_identity_check.py (sha256:16 = 07bd1e88c2fe9f37), корпус eval/corpus_ru.json, оркестратора нет
+# date: 2026-07-28
+# ЗАЧЕМ: results-prompt-tokens-* фиксирует ЧИСЛО токенов и символов, а равенство размера
+#   идентичности содержимого не доказывает. Здесь пересобирается тот же промпт (та же цепочка
+#   и тот же шаблон) и печатается его SHA-256 плюс идентификаторы отобранных чанков.
+#   LLM не вызывается: retrieval и rerank детерминированы, промпт восстанавливается точно.
+#
+# запрос                                        strizh sha256:12   bge-m3 sha256:12   вердикт
+# как настроить pooling у эмбеддера в llama-se  d58aaa9be60e     29550d4cab30     различны
+# почему падает индексация в векторном хранили  b903d37c2c90     ce6296d7bd2a     различны
+# как мониторить gpu на strix halo              41b248341ee3     2665ad150a55     различны
+# чем reranking отличается от dense retrieval   ce7a6d5d6747     fd9a73ec565a     различны
+# как ускорить векторный поиск в проде          acae8255a275     e07ce97243fc     различны
+# настройка healthcheck в docker compose        91892c6c0ce6     91892c6c0ce6     ИДЕНТИЧНЫ
+# как проверить деградацию модели после кванти  2bd6d9eddc5e     8d1937bdc358     различны
+# что делать при превышении контекста           dfa947feb37d     b55587b3825d     различны
+# как устроен offline-режим установки           4d35ebc46999     aab1cb7a201f     различны
+# какие сервисы входят в стек                   429b33bf284e     a6d93e6977c5     различны
+#
+# ИТОГ: побайтово идентичных промптов 1 из 10.
+#   «настройка healthcheck в docker compose»: top-4 чанки [50, 42, 85, 91] у обеих моделей, в том же порядке,
+#   5619 символов, SHA-256 91892c6c0ce6d76ba799540bc3ec289944af52359e84320aa7a5a9b772411df0.
+#   Именно эта точка используется в статье как естественный контроль: при побайтово равном
+#   промпте TTFT разошёлся на 22 мс (см. results-prompt-tokens-strix-2026-07-28.txt).
+
+### СЫРОЙ ВЫВОД
+# strizh:
+[{"q": "как настроить pooling у эмбеддера в llama-server", "emb_port": 8084, "top4_chunk_ids": [43, 19, 25, 45], "chars": 5461, "prompt_sha256": "d58aaa9be60e96f5e8d916f515a6e9cb8445e1fb5c8097fd94772aab08301bbc"}, {"q": "почему падает индексация в векторном хранилище", "emb_port": 8084, "top4_chunk_ids": [44, 62, 37, 39], "chars": 5511, "prompt_sha256": "b903d37c2c900e25f3154843676941710dc7bab8b8d223c2aeab6f41bcb31550"}, {"q": "как мониторить gpu на strix halo", "emb_port": 8084, "top4_chunk_ids": [59, 37, 60, 19], "chars": 5144, "prompt_sha256": "41b248341ee347c8db9cc4b7dcd34a872569dedf630d65a958e3ea633ce47974"}, {"q": "чем reranking отличается от dense retrieval", "emb_port": 8084, "top4_chunk_ids": [53, 14, 17, 93], "chars": 5699, "prompt_sha256": "ce7a6d5d67477941e66df167f978e0a702d143943bd198b2d1f3f2a6a69297df"}, {"q": "как ускорить векторный поиск в проде", "emb_port": 8084, "top4_chunk_ids": [17, 10, 23, 62], "chars": 5279, "prompt_sha256": "acae8255a275e29b9374190bf6c9f8d89fe13b396a714bf5f037d838b7f32bf7"}, {"q": "настройка healthcheck в docker compose", "emb_port": 8084, "top4_chunk_ids": [50, 42, 85, 91], "chars": 5619, "prompt_sha256": "91892c6c0ce6d76ba799540bc3ec289944af52359e84320aa7a5a9b772411df0"}, {"q": "как проверить деградацию модели после квантизации", "emb_port": 8084, "top4_chunk_ids": [15, 40, 68, 12], "chars": 4080, "prompt_sha256": "2bd6d9eddc5eec2f71a3e225b75a1a5506fe4d7f15d50b3cd8f0803adfb31399"}, {"q": "что делать при превышении контекста", "emb_port": 8084, "top4_chunk_ids": [7, 61, 43, 21], "chars": 5115, "prompt_sha256": "dfa947feb37dac0005da4f314383cc4e7d0f89bccbdec6c32691c98899f883a0"}, {"q": "как устроен offline-режим установки", "emb_port": 8084, "top4_chunk_ids": [7, 19, 44, 3], "chars": 5057, "prompt_sha256": "4d35ebc469990ada6dc323531434ade4cb7bf17a1fd3fbf1389c6473548f934a"}, {"q": "какие сервисы входят в стек", "emb_port": 8084, "top4_chunk_ids": [8, 7, 86, 75], "chars": 5916, "prompt_sha256": "429b33bf284eae8ba203a0f4fbf597012fd40813b5aff20788ce191000ea9130"}]
+# bge-m3:
+[{"q": "как настроить pooling у эмбеддера в llama-server", "emb_port": 8085, "top4_chunk_ids": [46, 67, 43, 25], "chars": 5579, "prompt_sha256": "29550d4cab30fad83a22fdde80eac94607654646b155d47cf2abab53dcbc39d3"}, {"q": "почему падает индексация в векторном хранилище", "emb_port": 8085, "top4_chunk_ids": [93, 1, 66, 79], "chars": 5863, "prompt_sha256": "ce6296d7bd2ae8c2ab92ea2e4b669743eea37d8035224429fd936a89be21e9bc"}, {"q": "как мониторить gpu на strix halo", "emb_port": 8085, "top4_chunk_ids": [59, 49, 37, 40], "chars": 5216, "prompt_sha256": "2665ad150a555361a21362e6af3532c368596d094394954a1fb72d30ecb8462c"}, {"q": "чем reranking отличается от dense retrieval", "emb_port": 8085, "top4_chunk_ids": [46, 51, 1, 82], "chars": 4074, "prompt_sha256": "fd9a73ec565a731fe4bcbb233dd583256bc9363aa118531cf3c7eedfe43b032a"}, {"q": "как ускорить векторный поиск в проде", "emb_port": 8085, "top4_chunk_ids": [17, 25, 40, 18], "chars": 5295, "prompt_sha256": "e07ce97243fcf0257e24ba53ae160dfcf14f69406f08e8216c0c23f6ca42d0c3"}, {"q": "настройка healthcheck в docker compose", "emb_port": 8085, "top4_chunk_ids": [50, 42, 85, 91], "chars": 5619, "prompt_sha256": "91892c6c0ce6d76ba799540bc3ec289944af52359e84320aa7a5a9b772411df0"}, {"q": "как проверить деградацию модели после квантизации", "emb_port": 8085, "top4_chunk_ids": [22, 49, 17, 13], "chars": 4630, "prompt_sha256": "8d1937bdc35882c72e5195ad956d704dc2b5aee0397e14f662d45500ae5cebfc"}, {"q": "что делать при превышении контекста", "emb_port": 8085, "top4_chunk_ids": [28, 90, 78, 96], "chars": 2410, "prompt_sha256": "b55587b3825d8e2594bf2f11d140c24d41520f21bab8e59257c69b8acbdb5833"}, {"q": "как устроен offline-режим установки", "emb_port": 8085, "top4_chunk_ids": [42, 3, 75, 77], "chars": 5815, "prompt_sha256": "aab1cb7a201f1b7638f92e34be8cf06a9decde344cb6a2bf438d05478167eaa6"}, {"q": "какие сервисы входят в стек", "emb_port": 8085, "top4_chunk_ids": [2, 91, 7, 31], "chars": 4921, "prompt_sha256": "a6d93e6977c5063b43428aafd7e2a3080d816ff926d275479e007a748d29e3fe"}]
